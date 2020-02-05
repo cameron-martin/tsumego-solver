@@ -214,6 +214,44 @@ impl GoGame {
 mod tests {
     use super::*;
 
+    impl GoGame {
+        fn from_sgf(sgf_string: &str) -> GoGame {
+            use sgf_parser::{parse, Action, Color, SgfToken};
+            use std::convert::TryInto;
+
+            let sgf = parse(sgf_string).unwrap();
+
+            // assert_eq!(sgf.count_variations(), 1);
+
+            let mut game = GoGame::empty();
+
+            for node in sgf.iter() {
+                // TODO: Work out why we have to clone here
+                for token in node.tokens.clone() {
+                    match token {
+                        SgfToken::Move {
+                            color,
+                            action: Action::Move(i, j),
+                        } => {
+                            game = game
+                                .play_move_for_player(
+                                    ((i - 1).try_into().unwrap(), (j - 1).try_into().unwrap()),
+                                    match color {
+                                        Color::Black => GoPlayer::Black,
+                                        Color::White => GoPlayer::White,
+                                    },
+                                )
+                                .unwrap()
+                        }
+                        _ => {}
+                    }
+                }
+            }
+
+            game
+        }
+    }
+
     #[test]
     fn can_add_stone() {
         let game = GoGame::empty();
@@ -263,70 +301,30 @@ mod tests {
 
     #[test]
     fn single_groups_are_captured() {
-        let game = GoGame::empty()
-            .play_move((0, 0))
-            .unwrap()
-            .play_move((1, 0))
-            .unwrap()
-            .play_move((10, 10))
-            .unwrap()
-            .play_move((0, 1))
-            .unwrap();
+        let game = GoGame::from_sgf(include_str!("test_sgfs/single_groups_are_captured.sgf"));
 
         assert_eq!(game.get_cell((0, 0)), BoardCell::Empty);
     }
 
     #[test]
     fn capturing_has_precedence_over_suicide() {
-        let game = GoGame::empty()
-            .play_move((0, 2))
-            .unwrap()
-            .play_move((0, 1))
-            .unwrap()
-            .play_move((1, 1))
-            .unwrap()
-            .play_move((1, 0))
-            .unwrap()
-            .play_move((0, 0))
-            .unwrap();
+        let game = GoGame::from_sgf(include_str!("test_sgfs/capturing_has_precedence_over_suicide.sgf"));
 
-        assert_eq!(game.get_cell((0, 1)), BoardCell::Empty);
+        assert_eq!(game.get_cell((1, 0)), BoardCell::Empty);
     }
 
     #[test]
     fn cannot_commit_suicide() {
-        let result = GoGame::empty()
-            .play_move((0, 1))
-            .unwrap()
-            .play_move((1, 1))
-            .unwrap()
-            .play_move((1, 0))
-            .unwrap()
-            .play_move((0, 0));
+        let game = GoGame::from_sgf(include_str!("test_sgfs/cannot_commit_suicide.sgf"));
+        let result = game.play_move((0, 0));
 
         assert_eq!(result, Err(MoveError::Suicidal));
     }
 
     #[test]
-    fn ko_rule() {
-        let result = GoGame::empty()
-            .play_move((3, 1))
-            .unwrap()
-            .play_move((2, 1))
-            .unwrap()
-            .play_move((4, 2))
-            .unwrap()
-            .play_move((1, 2))
-            .unwrap()
-            .play_move((3, 3))
-            .unwrap()
-            .play_move((2, 3))
-            .unwrap()
-            .play_move((2, 2))
-            .unwrap()
-            .play_move((3, 2))
-            .unwrap()
-            .play_move((2, 2));
+    fn ko_rule_simple() {
+        let game = GoGame::from_sgf(include_str!("test_sgfs/ko_rule_simple.sgf"));
+        let result = game.play_move((2, 2));
 
         assert_eq!(result, Err(MoveError::Ko));
     }

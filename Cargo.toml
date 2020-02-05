@@ -9,3 +9,6 @@ edition = "2018"
 [dependencies]
 indextree = "4.0.0"
 im = "10.2.0"
+
+[dev-dependencies]
+sgf-parser = "2.4.0"
