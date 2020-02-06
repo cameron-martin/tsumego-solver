@@ -1,5 +1,5 @@
 [package]
-name = "pn-search"
+name = "tsumego-solver"
 version = "0.1.0"
 authors = ["Cameron Martin <cameronmartin123@gmail.com>"]
 edition = "2018"
@@ -7,8 +7,13 @@ edition = "2018"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-indextree = "4.0.0"
+id_tree = "1.7.0"
 im = "10.2.0"
+sgf-parser = "2.4.0"
 
 [dev-dependencies]
-sgf-parser = "2.4.0"
+criterion = "0.3.1"
+
+[[bench]]
+name = "moves"
+harness = false
