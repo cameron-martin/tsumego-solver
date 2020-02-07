@@ -1,8 +1,13 @@
 #![allow(dead_code)]
 
+mod benson;
+mod bit_board;
+pub use bit_board::BitBoard;
+use bit_board::{BOARD_HEIGHT, BOARD_WIDTH};
+
 use im::conslist::ConsList;
+use std::fmt;
 use std::fmt::Debug;
-use std::ops::{BitAnd, BitOr, Not};
 use std::sync::Arc;
 
 #[derive(Copy, Clone, Debug, PartialEq)]
@@ -10,84 +15,6 @@ pub enum BoardCell {
     Empty,
     // OutOfBounds,
     Occupied(GoPlayer),
-}
-
-/// A bitboard with 16 columns and 8 rows,
-/// flowing left to right, then wrapping top to bottom.
-#[derive(Copy, Clone, PartialEq, Debug)]
-struct BitBoard(u128);
-
-impl BitAnd for BitBoard {
-    type Output = BitBoard;
-
-    fn bitand(self, rhs: BitBoard) -> BitBoard {
-        BitBoard(self.0 & rhs.0)
-    }
-}
-
-impl BitOr for BitBoard {
-    type Output = BitBoard;
-
-    fn bitor(self, rhs: BitBoard) -> BitBoard {
-        BitBoard(self.0 | rhs.0)
-    }
-}
-
-impl Not for BitBoard {
-    type Output = BitBoard;
-
-    fn not(self) -> BitBoard {
-        BitBoard(!self.0)
-    }
-}
-
-impl BitBoard {
-    pub fn singleton(position: BoardCoord) -> BitBoard {
-        BitBoard(1 << (position.0 + (16 * position.1)))
-    }
-
-    pub fn empty() -> BitBoard {
-        BitBoard(0)
-    }
-
-    pub fn shift_up(self) -> BitBoard {
-        BitBoard(self.0 << 16)
-    }
-
-    pub fn shift_down(self) -> BitBoard {
-        BitBoard(self.0 >> 16)
-    }
-
-    pub fn shift_left(self) -> BitBoard {
-        BitBoard((self.0 << 1) & 0xFFFEFFFEFFFEFFFEFFFEFFFEFFFEFFFE)
-    }
-
-    pub fn shift_right(self) -> BitBoard {
-        BitBoard((self.0 >> 1) & 0xEFFFEFFFEFFFEFFFEFFFEFFFEFFFEFFF)
-    }
-
-    pub fn is_empty(&self) -> bool {
-        self.0 == 0
-    }
-
-    pub fn flood_fill(self, mask: BitBoard) -> BitBoard {
-        let mut filled = self & mask;
-
-        loop {
-            let snapshot = filled;
-
-            filled = self.expand_one() & mask;
-
-            if filled == snapshot {
-                return filled;
-            }
-        }
-    }
-
-    /// Expands the board in all directions (left, right, up & down) by one cell
-    pub fn expand_one(self) -> BitBoard {
-        self | self.shift_up() | self.shift_down() | self.shift_left() | self.shift_right()
-    }
 }
 
 type BoardCoord = (usize, usize);
@@ -107,10 +34,27 @@ impl GoPlayer {
     }
 }
 
-#[derive(PartialEq, Clone, Debug)]
+#[derive(PartialEq, Clone)]
 pub struct GoBoard {
     white: BitBoard,
     black: BitBoard,
+}
+
+impl Debug for GoBoard {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        for j in 0..BOARD_HEIGHT {
+            for i in 0..BOARD_WIDTH {
+                f.write_str(match self.get_cell((i, j)) {
+                    BoardCell::Empty => ".",
+                    BoardCell::Occupied(GoPlayer::White) => "w",
+                    BoardCell::Occupied(GoPlayer::Black) => "b",
+                })?;
+            }
+            f.write_str("\n")?;
+        }
+
+        Ok(())
+    }
 }
 
 impl GoBoard {
@@ -119,6 +63,10 @@ impl GoBoard {
             white: BitBoard::empty(),
             black: BitBoard::empty(),
         }
+    }
+
+    fn empty_cells(&self) -> BitBoard {
+        !(self.white | self.black)
     }
 
     fn set_cell(&mut self, position: BoardCoord, cell: BoardCell) {
@@ -176,11 +124,10 @@ impl GoBoard {
     fn group_has_liberties(&self, position: BoardCoord) -> bool {
         let mask = self.get_bitboard_at_position(position);
 
-        let empty_space = !(self.white | self.black);
 
         let group = BitBoard::singleton(position).flood_fill(mask);
 
-        !(group.expand_one() & empty_space).is_empty()
+        !(group.expand_one() & self.empty_cells()).is_empty()
     }
 
     fn remove_group(&mut self, position: BoardCoord) {
@@ -207,11 +154,11 @@ fn get_surrounding_positions(position: BoardCoord) -> Vec<BoardCoord> {
         positions.push((position.0, position.1 - 1));
     }
 
-    if position.0 < 18 {
+    if position.0 < (BOARD_WIDTH - 1) {
         positions.push((position.0 + 1, position.1));
     }
 
-    if position.1 < 18 {
+    if position.1 < (BOARD_HEIGHT - 1) {
         positions.push((position.0, position.1 + 1));
     }
 
@@ -301,8 +248,8 @@ impl GoGame {
     pub fn generate_moves(&self) -> Vec<GoGame> {
         let mut games = Vec::new();
 
-        for i in 0..16 {
-            for j in 0..8 {
+        for i in 0..BOARD_WIDTH {
+            for j in 0..BOARD_HEIGHT {
                 if let Ok(game) = self.play_move((i, j)) {
                     games.push(game);
                 }
