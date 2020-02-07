@@ -7,15 +7,15 @@
         {
             "type": "lldb",
             "request": "launch",
-            "name": "Debug executable 'pn-search'",
+            "name": "Debug executable 'tsumego-solver'",
             "cargo": {
                 "args": [
                     "build",
-                    "--bin=pn-search",
-                    "--package=pn-search"
+                    "--bin=tsumego-solver",
+                    "--package=tsumego-solver"
                 ],
                 "filter": {
-                    "name": "pn-search",
+                    "name": "tsumego-solver",
                     "kind": "bin"
                 }
             },
@@ -25,16 +25,16 @@
         {
             "type": "lldb",
             "request": "launch",
-            "name": "Debug unit tests in executable 'pn-search'",
+            "name": "Debug unit tests in executable 'tsumego-solver'",
             "cargo": {
                 "args": [
                     "test",
                     "--no-run",
-                    "--bin=pn-search",
-                    "--package=pn-search"
+                    "--bin=tsumego-solver",
+                    "--package=tsumego-solver"
                 ],
                 "filter": {
-                    "name": "pn-search",
+                    "name": "tsumego-solver",
                     "kind": "bin"
                 }
             },
