@@ -106,6 +106,47 @@ impl BitBoard {
     pub fn immediate_exterior(self) -> BitBoard {
         self.expand_one() & !self
     }
+
+    pub fn iter(self) -> BitBoardGroupIterator {
+        BitBoardGroupIterator { remaining_groups: self }
+    }
+
+    pub fn first_cell(self) -> BitBoard {
+        let mut n = self.0;
+
+        n -= 1;
+        n |= n >> 1;
+        n |= n >> 2;
+        n |= n >> 4;
+        n |= n >> 8;
+        n |= n >> 16;
+        n |= n >> 32;
+        n |= n >> 64;
+        n += 1;
+        n = n >> 1;
+
+        BitBoard(n)
+    }
+}
+
+pub struct BitBoardGroupIterator {
+    remaining_groups: BitBoard,
+}
+
+impl Iterator for BitBoardGroupIterator {
+    type Item = BitBoard;
+
+    fn next(&mut self) -> Option<BitBoard> {
+        if self.remaining_groups.is_empty() {
+            None
+        } else {
+            let first_group = self.remaining_groups.first_cell().flood_fill(self.remaining_groups);
+
+            self.remaining_groups = self.remaining_groups & !first_group;
+
+            Some(first_group)
+        }
+    }
 }
 
 #[cfg(test)]
@@ -165,5 +206,90 @@ mod test {
         let board = BitBoard(0b0000000000000000_0000000000000000_0000000000000001_0000000000000000_0000000000000000_0000000000000000_0000000000000000_0000000000000000);
 
         assert!(board.shift_right().is_empty());
+    }
+
+    #[test]
+    fn first_cel() {
+        let board = BitBoard(0b0000000000000000_0101011000000000_0000000100100000_0001011001101000_0000100000100000_0001000001110000_0000000000000000_0000000000000000);
+
+        assert_eq!(
+            format!("{:?}", board.first_cell()),
+            "0000000000000000\n\
+             0100000000000000\n\
+             0000000000000000\n\
+             0000000000000000\n\
+             0000000000000000\n\
+             0000000000000000\n\
+             0000000000000000\n\
+             0000000000000000\n"
+        );    }
+
+    #[test]
+    fn iterate_groups() {
+        let board = BitBoard(0b0000000000000000_0100011000000000_0000000000000000_0000111001100000_0000100000100000_0000000001110000_0000000000000000_0000000000000000);
+
+        assert_eq!(
+            format!("{:?}", board),
+            "0000000000000000\n\
+             0100011000000000\n\
+             0000000000000000\n\
+             0000111001100000\n\
+             0000100000100000\n\
+             0000000001110000\n\
+             0000000000000000\n\
+             0000000000000000\n"
+        );
+
+        let mut iterator = board.iter();
+
+        assert_eq!(
+            format!("{:?}", iterator.next().unwrap()),
+            "0000000000000000\n\
+             0100000000000000\n\
+             0000000000000000\n\
+             0000000000000000\n\
+             0000000000000000\n\
+             0000000000000000\n\
+             0000000000000000\n\
+             0000000000000000\n"
+        );
+
+        assert_eq!(
+            format!("{:?}", iterator.next().unwrap()),
+            "0000000000000000\n\
+             0000011000000000\n\
+             0000000000000000\n\
+             0000000000000000\n\
+             0000000000000000\n\
+             0000000000000000\n\
+             0000000000000000\n\
+             0000000000000000\n"
+        );
+
+        assert_eq!(
+            format!("{:?}", iterator.next().unwrap()),
+            "0000000000000000\n\
+             0000000000000000\n\
+             0000000000000000\n\
+             0000111000000000\n\
+             0000100000000000\n\
+             0000000000000000\n\
+             0000000000000000\n\
+             0000000000000000\n"
+        );
+
+        assert_eq!(
+            format!("{:?}", iterator.next().unwrap()),
+            "0000000000000000\n\
+             0000000000000000\n\
+             0000000000000000\n\
+             0000000001100000\n\
+             0000000000100000\n\
+             0000000001110000\n\
+             0000000000000000\n\
+             0000000000000000\n"
+        );
+
+        assert_eq!(iterator.next(), None);
     }
 }

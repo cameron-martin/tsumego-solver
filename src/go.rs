@@ -124,7 +124,6 @@ impl GoBoard {
     fn group_has_liberties(&self, position: BoardCoord) -> bool {
         let mask = self.get_bitboard_at_position(position);
 
-
         let group = BitBoard::singleton(position).flood_fill(mask);
 
         !(group.expand_one() & self.empty_cells()).is_empty()
