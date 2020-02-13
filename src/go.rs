@@ -131,11 +131,12 @@ impl GoBoard {
 
     fn remove_dead_groups_for_player(&mut self, player: GoPlayer) {
         let opponents_bitboard = self.get_bitboard_for_player(player);
-        let stones_with_liberties = (self.empty_cells().expand_one() & opponents_bitboard).flood_fill(opponents_bitboard);
-        
+        let stones_with_liberties =
+            (self.empty_cells().expand_one() & opponents_bitboard).flood_fill(opponents_bitboard);
+
         match player {
             GoPlayer::White => self.white = stones_with_liberties,
-            GoPlayer::Black => self.black = stones_with_liberties
+            GoPlayer::Black => self.black = stones_with_liberties,
         }
     }
 }

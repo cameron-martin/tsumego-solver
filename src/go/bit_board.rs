@@ -108,7 +108,9 @@ impl BitBoard {
     }
 
     pub fn iter(self) -> BitBoardGroupIterator {
-        BitBoardGroupIterator { remaining_groups: self }
+        BitBoardGroupIterator {
+            remaining_groups: self,
+        }
     }
 
     pub fn first_cell(self) -> BitBoard {
@@ -140,7 +142,10 @@ impl Iterator for BitBoardGroupIterator {
         if self.remaining_groups.is_empty() {
             None
         } else {
-            let first_group = self.remaining_groups.first_cell().flood_fill(self.remaining_groups);
+            let first_group = self
+                .remaining_groups
+                .first_cell()
+                .flood_fill(self.remaining_groups);
 
             self.remaining_groups = self.remaining_groups & !first_group;
 
@@ -222,7 +227,8 @@ mod test {
              0000000000000000\n\
              0000000000000000\n\
              0000000000000000\n"
-        );    }
+        );
+    }
 
     #[test]
     fn iterate_groups() {
