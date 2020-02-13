@@ -23,12 +23,12 @@ impl GoBoard {
                 let empty_intersections_in_regions = regions & self.empty_cells();
 
                 let unhealthy_regions = (empty_intersections_in_regions
-                    & !(block.immediate_exterior()))
+                    & !block.immediate_exterior())
                 .flood_fill(regions);
 
                 let healthy_regions = regions & !unhealthy_regions;
 
-                let more_than_one_healthy_region = !(healthy_regions.is_empty())
+                let more_than_one_healthy_region = !healthy_regions.is_empty()
                     && !(healthy_regions
                         & !healthy_regions.first_cell().flood_fill(healthy_regions))
                     .is_empty();
@@ -45,7 +45,7 @@ impl GoBoard {
             }
 
             let removed_blocks = blocks & !remaining_blocks;
-            regions = regions & !((removed_blocks.expand_one() & regions).flood_fill(regions));
+            regions = regions & !(removed_blocks.expand_one() & regions).flood_fill(regions);
         }
     }
 
