@@ -262,6 +262,7 @@ impl GoGame {
                         Color::White => GoPlayer::White,
                     }),
                 ),
+                SgfToken::Move { color: _, action: _ } => panic!("Cannot move at this time!"),
                 _ => {}
             }
         }
@@ -285,6 +286,7 @@ impl GoGame {
                             )
                             .unwrap()
                     }
+                    SgfToken::Add { color: _, coordinate: _ } => panic!("Cannot add stones at this time!"),
                     _ => {}
                 }
             }
