@@ -242,7 +242,7 @@ impl GoGame {
 
         let sgf = parse(sgf_string).unwrap();
 
-        // assert_eq!(sgf.count_variations(), 1);
+        assert_eq!(sgf.count_variations(), 0);
 
         let mut nodes = sgf.iter();
 
