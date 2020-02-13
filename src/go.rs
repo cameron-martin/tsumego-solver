@@ -129,39 +129,15 @@ impl GoBoard {
         !(group.expand_one() & self.empty_cells()).is_empty()
     }
 
-    fn remove_group(&mut self, position: BoardCoord) {
-        match self.get_cell(position) {
-            BoardCell::Occupied(GoPlayer::White) => {
-                self.white = self.white & !(BitBoard::singleton(position).flood_fill(self.white));
-            }
-            BoardCell::Occupied(GoPlayer::Black) => {
-                self.black = self.black & !(BitBoard::singleton(position).flood_fill(self.black))
-            }
-            BoardCell::Empty => panic!("No group at location {:?}", position),
+    fn remove_dead_groups_for_player(&mut self, player: GoPlayer) {
+        let opponents_bitboard = self.get_bitboard_for_player(player);
+        let stones_with_liberties = (self.empty_cells().expand_one() & opponents_bitboard).flood_fill(opponents_bitboard);
+        
+        match player {
+            GoPlayer::White => self.white = stones_with_liberties,
+            GoPlayer::Black => self.black = stones_with_liberties
         }
     }
-}
-
-fn get_surrounding_positions(position: BoardCoord) -> Vec<BoardCoord> {
-    let mut positions = Vec::with_capacity(4);
-
-    if position.0 > 0 {
-        positions.push((position.0 - 1, position.1));
-    }
-
-    if position.1 > 0 {
-        positions.push((position.0, position.1 - 1));
-    }
-
-    if position.0 < (BOARD_WIDTH - 1) {
-        positions.push((position.0 + 1, position.1));
-    }
-
-    if position.1 < (BOARD_HEIGHT - 1) {
-        positions.push((position.0, position.1 + 1));
-    }
-
-    positions
 }
 
 #[derive(Debug, PartialEq)]
@@ -217,16 +193,8 @@ impl GoGame {
         let mut new_board = self.get_board().as_ref().clone();
         new_board.set_cell(position, BoardCell::Occupied(self.current_player));
 
-        // Remove adjacent groups with no liberties owned by other player
-        for surrounding_position in get_surrounding_positions(position) {
-            if new_board.get_cell(surrounding_position)
-                == BoardCell::Occupied(self.current_player.flip())
-            {
-                if !new_board.group_has_liberties(surrounding_position) {
-                    new_board.remove_group(surrounding_position);
-                }
-            }
-        }
+        // Remove dead groups owned by other player
+        new_board.remove_dead_groups_for_player(self.current_player.flip());
 
         // Evaluate suicide
         if !new_board.group_has_liberties(position) {
