@@ -4,9 +4,6 @@ use std::ops::{BitAnd, BitOr, Not};
 
 use super::BoardCoord;
 
-pub const BOARD_WIDTH: usize = 16;
-pub const BOARD_HEIGHT: usize = 8;
-
 /// A bitboard with 16 columns and 8 rows,
 /// flowing left to right, then wrapping top to bottom.
 #[derive(Copy, Clone, PartialEq)]
@@ -14,8 +11,8 @@ pub struct BitBoard(u128);
 
 impl Debug for BitBoard {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        for i in 0..BOARD_HEIGHT {
-            let row = (self.0 << (i * BOARD_WIDTH)) >> ((BOARD_HEIGHT - 1) * BOARD_WIDTH);
+        for i in 0..Self::height() {
+            let row = (self.0 << (i * Self::width())) >> ((Self::height() - 1) * Self::width());
             f.write_str(&(format!("{:016b}", row) + "\n"))?;
         }
 
@@ -48,8 +45,16 @@ impl Not for BitBoard {
 }
 
 impl BitBoard {
+    pub fn width() -> u8 {
+        16
+    }
+
+    pub fn height() -> u8 {
+        8
+    }
+
     pub fn singleton(position: BoardCoord) -> BitBoard {
-        BitBoard(0x80000000000000000000000000000000 >> (position.0 + (BOARD_WIDTH * position.1)))
+        BitBoard(0x80000000000000000000000000000000 >> (position.0 + Self::width() * position.1))
     }
 
     pub fn empty() -> BitBoard {
@@ -57,11 +62,11 @@ impl BitBoard {
     }
 
     pub fn shift_up(self) -> BitBoard {
-        BitBoard(self.0 << BOARD_WIDTH)
+        BitBoard(self.0 << Self::width())
     }
 
     pub fn shift_down(self) -> BitBoard {
-        BitBoard(self.0 >> BOARD_WIDTH)
+        BitBoard(self.0 >> Self::width())
     }
 
     pub fn shift_left(self) -> BitBoard {
@@ -139,8 +144,6 @@ impl Iterator for BitBoardGroupIterator {
         if self.remaining_groups.is_empty() {
             None
         } else {
-            let first_cell = self.remaining_groups.first_cell();
-
             let first_group = self
                 .remaining_groups
                 .first_cell()

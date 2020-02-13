@@ -3,7 +3,6 @@
 mod benson;
 mod bit_board;
 pub use bit_board::BitBoard;
-use bit_board::{BOARD_HEIGHT, BOARD_WIDTH};
 
 use im::conslist::ConsList;
 use std::fmt;
@@ -17,7 +16,7 @@ pub enum BoardCell {
     Occupied(GoPlayer),
 }
 
-type BoardCoord = (usize, usize);
+type BoardCoord = (u8, u8);
 
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum GoPlayer {
@@ -42,8 +41,8 @@ pub struct GoBoard {
 
 impl Debug for GoBoard {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        for j in 0..BOARD_HEIGHT {
-            for i in 0..BOARD_WIDTH {
+        for j in 0..BitBoard::height() {
+            for i in 0..BitBoard::width() {
                 f.write_str(match self.get_cell((i, j)) {
                     BoardCell::Empty => ".",
                     BoardCell::Occupied(GoPlayer::White) => "w",
@@ -225,8 +224,8 @@ impl GoGame {
     pub fn generate_moves(&self) -> Vec<GoGame> {
         let mut games = Vec::new();
 
-        for i in 0..BOARD_WIDTH {
-            for j in 0..BOARD_HEIGHT {
+        for i in 0..BitBoard::width() {
+            for j in 0..BitBoard::height() {
                 if let Ok(game) = self.play_move((i, j)) {
                     games.push(game);
                 }
@@ -240,7 +239,6 @@ impl GoGame {
 impl GoGame {
     pub fn from_sgf(sgf_string: &str) -> GoGame {
         use sgf_parser::{parse, Action, Color, SgfToken};
-        use std::convert::TryInto;
 
         let sgf = parse(sgf_string).unwrap();
 
@@ -258,7 +256,7 @@ impl GoGame {
                     color,
                     coordinate: (i, j),
                 } => board.set_cell(
-                    ((i - 1).try_into().unwrap(), (j - 1).try_into().unwrap()),
+                    (i - 1, j - 1),
                     BoardCell::Occupied(match color {
                         Color::Black => GoPlayer::Black,
                         Color::White => GoPlayer::White,
@@ -279,7 +277,7 @@ impl GoGame {
                     } => {
                         game = game
                             .play_move_for_player(
-                                ((i - 1).try_into().unwrap(), (j - 1).try_into().unwrap()),
+                                (i - 1, j - 1),
                                 match color {
                                     Color::Black => GoPlayer::Black,
                                     Color::White => GoPlayer::White,
