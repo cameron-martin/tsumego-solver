@@ -1,6 +1,6 @@
 #![allow(dead_code)]
 
-// mod benson;
+mod benson;
 mod bit_board;
 pub use bit_board::BitBoard;
 use bit_board::{BOARD_HEIGHT, BOARD_WIDTH};
@@ -166,6 +166,15 @@ impl GoGame {
         }
     }
 
+    pub fn from_board(board: GoBoard) -> GoGame {
+        let boards = ConsList::singleton(board);
+
+        GoGame {
+            boards,
+            current_player: GoPlayer::Black,
+        }
+    }
+
     pub fn get_board(&self) -> Arc<GoBoard> {
         self.boards.head().unwrap()
     }
@@ -237,11 +246,32 @@ impl GoGame {
 
         // assert_eq!(sgf.count_variations(), 1);
 
-        let mut game = GoGame::empty();
+        let mut nodes = sgf.iter();
 
-        for node in sgf.iter() {
-            // TODO: Work out why we have to clone here
-            for token in node.tokens.clone() {
+        let first_node = nodes.next().unwrap();
+
+        let mut board = GoBoard::empty();
+
+        for token in first_node.tokens.iter() {
+            match token {
+                SgfToken::Add {
+                    color,
+                    coordinate: (i, j),
+                } => board.set_cell(
+                    ((i - 1).try_into().unwrap(), (j - 1).try_into().unwrap()),
+                    BoardCell::Occupied(match color {
+                        Color::Black => GoPlayer::Black,
+                        Color::White => GoPlayer::White,
+                    }),
+                ),
+                _ => {}
+            }
+        }
+
+        let mut game = GoGame::from_board(board);
+
+        for node in nodes {
+            for token in node.tokens.iter() {
                 match token {
                     SgfToken::Move {
                         color,
