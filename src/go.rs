@@ -25,7 +25,7 @@ pub enum GoPlayer {
 }
 
 impl GoPlayer {
-    pub fn flip(&self) -> GoPlayer {
+    pub fn flip(self) -> GoPlayer {
         match self {
             GoPlayer::Black => GoPlayer::White,
             GoPlayer::White => GoPlayer::Black,
@@ -262,7 +262,7 @@ impl GoGame {
                         Color::White => GoPlayer::White,
                     }),
                 ),
-                SgfToken::Move { color: _, action: _ } => panic!("Cannot move at this time!"),
+                SgfToken::Move { .. } => panic!("Cannot move at this time!"),
                 _ => {}
             }
         }
@@ -286,7 +286,7 @@ impl GoGame {
                             )
                             .unwrap()
                     }
-                    SgfToken::Add { color: _, coordinate: _ } => panic!("Cannot add stones at this time!"),
+                    SgfToken::Add { .. } => panic!("Cannot add stones at this time!"),
                     _ => {}
                 }
             }

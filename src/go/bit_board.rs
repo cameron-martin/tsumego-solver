@@ -54,7 +54,7 @@ impl BitBoard {
     }
 
     pub fn singleton(position: BoardCoord) -> BitBoard {
-        BitBoard(0x80000000000000000000000000000000 >> (position.0 + Self::width() * position.1))
+        BitBoard(0x8000_0000_0000_0000_0000_0000_0000_0000 >> (position.0 + Self::width() * position.1))
     }
 
     pub fn empty() -> BitBoard {
@@ -70,11 +70,11 @@ impl BitBoard {
     }
 
     pub fn shift_left(self) -> BitBoard {
-        BitBoard((self.0 << 1) & 0xFFFEFFFEFFFEFFFEFFFEFFFEFFFEFFFEu128)
+        BitBoard((self.0 << 1) & 0xFFFE_FFFE_FFFE_FFFE_FFFE_FFFE_FFFE_FFFEu128)
     }
 
     pub fn shift_right(self) -> BitBoard {
-        BitBoard((self.0 >> 1) & 0x7FFF7FFF7FFF7FFF7FFF7FFF7FFF7FFFu128)
+        BitBoard((self.0 >> 1) & 0x7FFF_7FFF_7FFF_7FFF_7FFF_7FFF_7FFF_7FFFu128)
     }
 
     pub fn is_empty(&self) -> bool {
