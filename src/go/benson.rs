@@ -62,6 +62,7 @@ mod tests {
     use super::super::GoGame;
     use super::*;
 
+    #[test]
     fn small_black_enclosed_regions() {
         let board = GoGame::from_sgf(include_str!(
             "../test_sgfs/small_black_enclosed_regions.sgf"
@@ -69,7 +70,7 @@ mod tests {
         .get_board();
 
         let answer = GoGame::from_sgf(include_str!(
-            "../test_sgfs/small_black_enclosed_regions.sgf"
+            "../test_sgfs/small_black_enclosed_regions_answer.sgf"
         ))
         .get_board()
         .get_bitboard_for_player(GoPlayer::White);
