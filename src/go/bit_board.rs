@@ -59,6 +59,22 @@ impl BitBoard {
         )
     }
 
+    pub fn top_edge() -> BitBoard {
+        BitBoard(0xFFFF_0000_0000_0000_0000_0000_0000_0000u128)
+    }
+
+    pub fn bottom_edge() -> BitBoard {
+        BitBoard(0x0000_0000_0000_0000_0000_0000_0000_FFFFu128)
+    }
+
+    pub fn right_edge() -> BitBoard {
+        BitBoard(0x0001_0001_0001_0001_0001_0001_0001_0001u128)
+    }
+
+    pub fn left_edge() -> BitBoard {
+        BitBoard(0x8000_8000_8000_8000_8000_8000_8000_8000u128)
+    }
+
     pub fn empty() -> BitBoard {
         BitBoard(0)
     }
@@ -72,11 +88,11 @@ impl BitBoard {
     }
 
     pub fn shift_left(self) -> BitBoard {
-        BitBoard((self.0 << 1) & 0xFFFE_FFFE_FFFE_FFFE_FFFE_FFFE_FFFE_FFFEu128)
+        BitBoard(self.0 << 1) & !Self::right_edge()
     }
 
     pub fn shift_right(self) -> BitBoard {
-        BitBoard((self.0 >> 1) & 0x7FFF_7FFF_7FFF_7FFF_7FFF_7FFF_7FFF_7FFFu128)
+        BitBoard(self.0 >> 1) & !Self::left_edge()
     }
 
     pub fn is_empty(&self) -> bool {
@@ -103,10 +119,10 @@ impl BitBoard {
     }
 
     pub fn interior(self) -> BitBoard {
-        self & (self.shift_up() | BitBoard(0x0000_0000_0000_0000_0000_0000_0000_FFFFu128))
-            & (self.shift_down() | BitBoard(0xFFFF_0000_0000_0000_0000_0000_0000_0000u128))
-            & (self.shift_left() | BitBoard(0x0001_0001_0001_0001_0001_0001_0001_0001u128))
-            & (self.shift_right() | BitBoard(0x8000_8000_8000_8000_8000_8000_8000_8000u128))
+        self & (self.shift_up() | Self::bottom_edge())
+            & (self.shift_down() | Self::top_edge())
+            & (self.shift_left() | Self::right_edge())
+            & (self.shift_right() | Self::left_edge())
     }
 
     pub fn border(self) -> BitBoard {
