@@ -54,7 +54,9 @@ impl BitBoard {
     }
 
     pub fn singleton(position: BoardCoord) -> BitBoard {
-        BitBoard(0x8000_0000_0000_0000_0000_0000_0000_0000 >> (position.0 + Self::width() * position.1))
+        BitBoard(
+            0x8000_0000_0000_0000_0000_0000_0000_0000 >> (position.0 + Self::width() * position.1),
+        )
     }
 
     pub fn empty() -> BitBoard {
@@ -101,7 +103,10 @@ impl BitBoard {
     }
 
     pub fn interior(self) -> BitBoard {
-        self & self.shift_up() & self.shift_down() & self.shift_left() & self.shift_right()
+        self & (self.shift_up() | BitBoard(0x0000_0000_0000_0000_0000_0000_0000_FFFFu128))
+            & (self.shift_down() | BitBoard(0xFFFF_0000_0000_0000_0000_0000_0000_0000u128))
+            & (self.shift_left() | BitBoard(0x0001_0001_0001_0001_0001_0001_0001_0001u128))
+            & (self.shift_right() | BitBoard(0x8000_8000_8000_8000_8000_8000_8000_8000u128))
     }
 
     pub fn border(self) -> BitBoard {
@@ -361,5 +366,34 @@ mod test {
         );
 
         assert_eq!(iterator.next(), None);
+    }
+
+    #[test]
+    fn edges_are_in_interior() {
+        let board = BitBoard(0b1100011111000001_1000001110000001_0000000000000011_0000000000000111_1110000000000011_1110000000000000_1110000111110000_1110000111110000);
+
+        assert_eq!(
+            format!("{:?}", board),
+            "1100011111000001\n\
+             1000001110000001\n\
+             0000000000000011\n\
+             0000000000000111\n\
+             1110000000000011\n\
+             1110000000000000\n\
+             1110000111110000\n\
+             1110000111110000\n"
+        );
+
+        assert_eq!(
+            format!("{:?}", board.interior()),
+            "1000001110000000\n\
+             0000000000000000\n\
+             0000000000000001\n\
+             0000000000000011\n\
+             0000000000000000\n\
+             1100000000000000\n\
+             1100000000000000\n\
+             1100000011100000\n"
+        );
     }
 }
