@@ -7,9 +7,9 @@ edition = "2018"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-id_tree = "1.7.0"
 im = "10.2.0"
 sgf-parser = "2.4.0"
+petgraph = "0.5.0"
 
 [dev-dependencies]
 criterion = "0.3.1"
@@ -20,4 +20,8 @@ harness = false
 
 [[bench]]
 name = "unconditional_life"
+harness = false
+
+[[bench]]
+name = "solving_puzzles"
 harness = false

@@ -1,8 +1,6 @@
-use id_tree::{Node, TreeBuilder};
-
 mod go;
 use go::{BoardCell, GoGame};
-mod pn_search;
+mod puzzle;
 // use pn_search::{AndOrNode, NodeType};
 
 // fn generate_children(node: AndOrNode<GoGame>) -> Vec<AndOrNode<GoGame>> {

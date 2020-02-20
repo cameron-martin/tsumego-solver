@@ -17,7 +17,7 @@ impl GoBoard {
         loop {
             let mut removed_blocks = 0;
 
-            for block in remaining_blocks.iter() {
+            for block in remaining_blocks.groups() {
                 // Has the block `block` got at least 2 healthy regions in `regions`?
 
                 let empty_intersections_in_regions = regions & self.empty_cells();
@@ -30,7 +30,8 @@ impl GoBoard {
 
                 let more_than_one_healthy_region = !healthy_regions.is_empty()
                     && !(healthy_regions
-                        & !healthy_regions.first_cell().flood_fill(healthy_regions))
+                        & !BitBoard::singleton(healthy_regions.first_cell())
+                            .flood_fill(healthy_regions))
                     .is_empty();
 
                 if !more_than_one_healthy_region {

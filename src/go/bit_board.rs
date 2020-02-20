@@ -2,7 +2,14 @@ use std::fmt;
 use std::fmt::Debug;
 use std::ops::{BitAnd, BitOr, Not};
 
-use super::BoardCoord;
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub struct BoardPosition(u32);
+
+impl BoardPosition {
+    pub fn new(column: u8, row: u8) -> BoardPosition {
+        BoardPosition((column + BitBoard::width() * row).into())
+    }
+}
 
 /// A bitboard with 16 columns and 8 rows,
 /// flowing left to right, then wrapping top to bottom.
@@ -10,7 +17,7 @@ use super::BoardCoord;
 pub struct BitBoard(u128);
 
 impl Debug for BitBoard {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         for i in 0..Self::height() {
             let row = (self.0 << (i * Self::width())) >> ((Self::height() - 1) * Self::width());
             f.write_str(&(format!("{:016b}", row) + "\n"))?;
@@ -53,10 +60,8 @@ impl BitBoard {
         8
     }
 
-    pub fn singleton(position: BoardCoord) -> BitBoard {
-        BitBoard(
-            0x8000_0000_0000_0000_0000_0000_0000_0000 >> (position.0 + Self::width() * position.1),
-        )
+    pub fn singleton(position: BoardPosition) -> BitBoard {
+        BitBoard(0x8000_0000_0000_0000_0000_0000_0000_0000 >> position.0)
     }
 
     pub fn top_edge() -> BitBoard {
@@ -133,24 +138,20 @@ impl BitBoard {
         self.expand_one() & !self
     }
 
-    pub fn iter(self) -> BitBoardGroupIterator {
+    pub fn groups(self) -> BitBoardGroupIterator {
         BitBoardGroupIterator {
             remaining_groups: self,
         }
     }
 
-    pub fn first_cell(self) -> BitBoard {
-        let mut n = self.0;
+    pub fn positions(self) -> BitBoardPositionIterator {
+        BitBoardPositionIterator {
+            remaining_positions: self,
+        }
+    }
 
-        n |= n >> 1;
-        n |= n >> 2;
-        n |= n >> 4;
-        n |= n >> 8;
-        n |= n >> 16;
-        n |= n >> 32;
-        n |= n >> 64;
-
-        BitBoard(n & !(n >> 1))
+    pub fn first_cell(self) -> BoardPosition {
+        BoardPosition(self.0.leading_zeros())
     }
 }
 
@@ -165,14 +166,32 @@ impl Iterator for BitBoardGroupIterator {
         if self.remaining_groups.is_empty() {
             None
         } else {
-            let first_group = self
-                .remaining_groups
-                .first_cell()
+            let first_group = BitBoard::singleton(self.remaining_groups.first_cell())
                 .flood_fill(self.remaining_groups);
 
             self.remaining_groups = self.remaining_groups & !first_group;
 
             Some(first_group)
+        }
+    }
+}
+
+pub struct BitBoardPositionIterator {
+    remaining_positions: BitBoard,
+}
+
+impl Iterator for BitBoardPositionIterator {
+    type Item = BoardPosition;
+
+    fn next(&mut self) -> Option<BoardPosition> {
+        if self.remaining_positions.is_empty() {
+            None
+        } else {
+            let position = self.remaining_positions.first_cell();
+
+            self.remaining_positions = self.remaining_positions & !BitBoard::singleton(position);
+
+            Some(position)
         }
     }
 }
@@ -197,7 +216,7 @@ mod test {
              0000000000000000\n"
         );
 
-        let filled = BitBoard::singleton((11, 5)).flood_fill(mask);
+        let filled = BitBoard::singleton(BoardPosition::new(11, 5)).flood_fill(mask);
 
         assert_eq!(
             format!("{:?}", filled),
@@ -241,7 +260,7 @@ mod test {
         let board = BitBoard(0b0000000000000000_0101011000000000_0000000100100000_0001011001101000_0000100000100000_0001000001110000_0000000000000000_0000000000000000);
 
         assert_eq!(
-            format!("{:?}", board.first_cell()),
+            format!("{:?}", BitBoard::singleton(board.first_cell())),
             "0000000000000000\n\
              0100000000000000\n\
              0000000000000000\n\
@@ -270,7 +289,7 @@ mod test {
         );
 
         assert_eq!(
-            format!("{:?}", board.first_cell()),
+            format!("{:?}", BitBoard::singleton(board.first_cell())),
             "0000000000000000\n\
              1000000000000000\n\
              0000000000000000\n\
@@ -298,7 +317,7 @@ mod test {
              0000000000000000\n"
         );
 
-        let mut iterator = board.iter();
+        let mut iterator = board.groups();
 
         assert_eq!(
             format!("{:?}", iterator.next().unwrap()),
@@ -367,7 +386,7 @@ mod test {
              0000000000000000\n"
         );
 
-        let mut iterator = board.iter();
+        let mut iterator = board.groups();
 
         assert_eq!(
             format!("{:?}", iterator.next().unwrap()),
@@ -411,5 +430,62 @@ mod test {
              1100000000000000\n\
              1100000011100000\n"
         );
+    }
+
+    #[test]
+    fn iterate_positions() {
+        let board = BitBoard(0b0000000000000000_0110000000000000_0000000000000000_0000000001000000_0000000000000000_0000000000000000_0000000000000000_0000000000000000);
+
+        assert_eq!(
+            format!("{:?}", board),
+            "0000000000000000\n\
+             0110000000000000\n\
+             0000000000000000\n\
+             0000000001000000\n\
+             0000000000000000\n\
+             0000000000000000\n\
+             0000000000000000\n\
+             0000000000000000\n"
+        );
+
+        let mut iterator = board.positions();
+
+        assert_eq!(
+            format!("{:?}", BitBoard::singleton(iterator.next().unwrap())),
+            "0000000000000000\n\
+             0100000000000000\n\
+             0000000000000000\n\
+             0000000000000000\n\
+             0000000000000000\n\
+             0000000000000000\n\
+             0000000000000000\n\
+             0000000000000000\n"
+        );
+
+        assert_eq!(
+            format!("{:?}", BitBoard::singleton(iterator.next().unwrap())),
+            "0000000000000000\n\
+             0010000000000000\n\
+             0000000000000000\n\
+             0000000000000000\n\
+             0000000000000000\n\
+             0000000000000000\n\
+             0000000000000000\n\
+             0000000000000000\n"
+        );
+
+        assert_eq!(
+            format!("{:?}", BitBoard::singleton(iterator.next().unwrap())),
+            "0000000000000000\n\
+             0000000000000000\n\
+             0000000000000000\n\
+             0000000001000000\n\
+             0000000000000000\n\
+             0000000000000000\n\
+             0000000000000000\n\
+             0000000000000000\n"
+        );
+
+        assert_eq!(iterator.next(), None);
     }
 }

@@ -2,7 +2,7 @@
 
 mod benson;
 mod bit_board;
-pub use bit_board::BitBoard;
+pub use bit_board::{BitBoard, BoardPosition};
 
 use im::conslist::ConsList;
 use std::fmt;
@@ -15,8 +15,6 @@ pub enum BoardCell {
     // OutOfBounds,
     Occupied(GoPlayer),
 }
-
-type BoardCoord = (u8, u8);
 
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum GoPlayer {
@@ -40,10 +38,10 @@ pub struct GoBoard {
 }
 
 impl Debug for GoBoard {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         for j in 0..BitBoard::height() {
             for i in 0..BitBoard::width() {
-                f.write_str(match self.get_cell((i, j)) {
+                f.write_str(match self.get_cell(BoardPosition::new(i, j)) {
                     BoardCell::Empty => ".",
                     BoardCell::Occupied(GoPlayer::White) => "w",
                     BoardCell::Occupied(GoPlayer::Black) => "b",
@@ -68,7 +66,7 @@ impl GoBoard {
         !(self.white | self.black)
     }
 
-    fn set_cell(&mut self, position: BoardCoord, cell: BoardCell) {
+    fn set_cell(&mut self, position: BoardPosition, cell: BoardCell) {
         let mask = BitBoard::singleton(position);
 
         match cell {
@@ -85,7 +83,7 @@ impl GoBoard {
         }
     }
 
-    fn get_cell(&self, position: BoardCoord) -> BoardCell {
+    fn get_cell(&self, position: BoardPosition) -> BoardCell {
         let mask = BitBoard::singleton(position);
 
         if !((mask & self.white).is_empty()) {
@@ -106,7 +104,7 @@ impl GoBoard {
         }
     }
 
-    fn get_bitboard_at_position(&self, position: BoardCoord) -> BitBoard {
+    fn get_bitboard_at_position(&self, position: BoardPosition) -> BitBoard {
         let mask = BitBoard::singleton(position);
 
         if !((mask & self.white).is_empty()) {
@@ -120,7 +118,7 @@ impl GoBoard {
         panic!("No board at this position")
     }
 
-    fn group_has_liberties(&self, position: BoardCoord) -> bool {
+    fn group_has_liberties(&self, position: BoardPosition) -> bool {
         let mask = self.get_bitboard_at_position(position);
 
         let group = BitBoard::singleton(position).flood_fill(mask);
@@ -140,10 +138,12 @@ impl GoBoard {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct GoGame {
     boards: ConsList<GoBoard>,
-    current_player: GoPlayer,
+    out_of_bounds: BitBoard,
+    pub current_player: GoPlayer,
+    pub last_move_pass: bool,
 }
 
 #[derive(Debug, PartialEq)]
@@ -162,15 +162,19 @@ impl GoGame {
         GoGame {
             boards,
             current_player: GoPlayer::Black,
+            out_of_bounds: BitBoard::empty(),
+            last_move_pass: false,
         }
     }
 
-    pub fn from_board(board: GoBoard) -> GoGame {
+    pub fn from_board(board: GoBoard, out_of_bounds: BitBoard) -> GoGame {
         let boards = ConsList::singleton(board);
 
         GoGame {
             boards,
             current_player: GoPlayer::Black,
+            out_of_bounds,
+            last_move_pass: false,
         }
     }
 
@@ -178,13 +182,21 @@ impl GoGame {
         self.boards.head().unwrap()
     }
 
-    fn get_cell(&self, position: BoardCoord) -> BoardCell {
+    fn get_cell(&self, position: BoardPosition) -> BoardCell {
         self.get_board().get_cell(position)
+    }
+
+    fn is_out_of_bounds(&self, position: BoardPosition) -> bool {
+        !(BitBoard::singleton(position) & self.out_of_bounds).is_empty()
+    }
+
+    fn empty_cells(&self) -> BitBoard {
+        self.get_board().empty_cells() & !self.out_of_bounds
     }
 
     pub fn play_move_for_player(
         &self,
-        position: BoardCoord,
+        position: BoardPosition,
         player: GoPlayer,
     ) -> Result<GoGame, MoveError> {
         if self.current_player != player {
@@ -194,9 +206,13 @@ impl GoGame {
         self.play_move(position)
     }
 
-    pub fn play_move(&self, position: BoardCoord) -> Result<GoGame, MoveError> {
+    pub fn play_move(&self, position: BoardPosition) -> Result<GoGame, MoveError> {
         if self.get_cell(position) != BoardCell::Empty {
             return Err(MoveError::Occupied);
+        }
+
+        if self.is_out_of_bounds(position) {
+            return Err(MoveError::OutOfBounds);
         }
 
         let mut new_board = self.get_board().as_ref().clone();
@@ -218,21 +234,34 @@ impl GoGame {
         Ok(GoGame {
             boards: self.boards.cons(new_board),
             current_player: self.current_player.flip(),
+            out_of_bounds: self.out_of_bounds,
+            last_move_pass: false,
         })
+    }
+
+    pub fn pass(&self) -> GoGame {
+        GoGame {
+            boards: self.boards.cons(self.get_board()),
+            current_player: self.current_player.flip(),
+            out_of_bounds: self.out_of_bounds,
+            last_move_pass: true,
+        }
     }
 
     pub fn generate_moves(&self) -> Vec<GoGame> {
         let mut games = Vec::new();
 
-        for i in 0..BitBoard::width() {
-            for j in 0..BitBoard::height() {
-                if let Ok(game) = self.play_move((i, j)) {
-                    games.push(game);
-                }
+        for position in self.empty_cells().positions() {
+            if let Ok(game) = self.play_move(position) {
+                games.push(game);
             }
         }
 
         games
+    }
+
+    pub fn plys(&self) -> usize {
+        self.boards.len() - 1
     }
 }
 
@@ -249,6 +278,7 @@ impl GoGame {
         let first_node = nodes.next().unwrap();
 
         let mut board = GoBoard::empty();
+        let mut triangle_location = None;
 
         for token in first_node.tokens.iter() {
             match token {
@@ -256,18 +286,26 @@ impl GoGame {
                     color,
                     coordinate: (i, j),
                 } => board.set_cell(
-                    (i - 1, j - 1),
+                    BoardPosition::new(i - 1, j - 1),
                     BoardCell::Occupied(match color {
                         Color::Black => GoPlayer::Black,
                         Color::White => GoPlayer::White,
                     }),
                 ),
+                SgfToken::Triangle { coordinate: (i, j) } => {
+                    triangle_location = Some(BoardPosition::new(i - 1, j - 1))
+                }
                 SgfToken::Move { .. } => panic!("Cannot move at this time!"),
                 _ => {}
             }
         }
 
-        let mut game = GoGame::from_board(board);
+        let out_of_bounds = match triangle_location {
+            None => BitBoard::empty(),
+            Some(position) => BitBoard::singleton(position).flood_fill(board.empty_cells()),
+        };
+
+        let mut game = GoGame::from_board(board, out_of_bounds);
 
         for node in nodes {
             for token in node.tokens.iter() {
@@ -278,7 +316,7 @@ impl GoGame {
                     } => {
                         game = game
                             .play_move_for_player(
-                                (i - 1, j - 1),
+                                BoardPosition::new(i - 1, j - 1),
                                 match color {
                                     Color::Black => GoPlayer::Black,
                                     Color::White => GoPlayer::White,
@@ -303,19 +341,27 @@ mod tests {
     #[test]
     fn can_add_stone() {
         let game = GoGame::empty();
-        let game = game.play_move_for_player((0, 0), GoPlayer::Black).unwrap();
+        let game = game
+            .play_move_for_player(BoardPosition::new(0, 0), GoPlayer::Black)
+            .unwrap();
 
-        assert_eq!(game.get_cell((0, 0)), BoardCell::Occupied(GoPlayer::Black));
+        assert_eq!(
+            game.get_cell(BoardPosition::new(0, 0)),
+            BoardCell::Occupied(GoPlayer::Black)
+        );
     }
 
     #[test]
     fn previous_board_is_not_mutated() {
         let old_game = GoGame::empty();
         let new_game = old_game
-            .play_move_for_player((0, 0), GoPlayer::Black)
+            .play_move_for_player(BoardPosition::new(0, 0), GoPlayer::Black)
             .unwrap();
 
-        assert_ne!(old_game.get_cell((0, 0)), new_game.get_cell((0, 0)));
+        assert_ne!(
+            old_game.get_cell(BoardPosition::new(0, 0)),
+            new_game.get_cell(BoardPosition::new(0, 0))
+        );
     }
 
     #[test]
@@ -327,22 +373,23 @@ mod tests {
 
     #[test]
     fn player_advances_when_playing_move() {
-        let game = GoGame::empty().play_move((0, 0)).unwrap();
+        let game = GoGame::empty().play_move(BoardPosition::new(0, 0)).unwrap();
 
         assert_eq!(game.current_player, GoPlayer::White);
     }
 
     #[test]
     fn cannot_play_move_out_of_turn() {
-        let result = GoGame::empty().play_move_for_player((0, 0), GoPlayer::White);
+        let result =
+            GoGame::empty().play_move_for_player(BoardPosition::new(0, 0), GoPlayer::White);
 
         assert_eq!(result, Err(MoveError::OutOfTurn));
     }
 
     #[test]
     fn cannot_play_in_occupied_space() {
-        let game = GoGame::empty().play_move((0, 0)).unwrap();
-        let result = game.play_move((0, 0));
+        let game = GoGame::empty().play_move(BoardPosition::new(0, 0)).unwrap();
+        let result = game.play_move(BoardPosition::new(0, 0));
 
         assert_eq!(result, Err(MoveError::Occupied));
     }
@@ -351,24 +398,30 @@ mod tests {
     fn single_groups_are_captured() {
         let game = GoGame::from_sgf(include_str!("test_sgfs/single_groups_are_captured.sgf"));
 
-        assert_eq!(game.get_cell((0, 0)), BoardCell::Empty);
+        assert_eq!(game.get_cell(BoardPosition::new(0, 0)), BoardCell::Empty);
     }
 
     #[test]
     fn complex_groups_are_captured() {
         let game = GoGame::from_sgf(include_str!("test_sgfs/complex_capture.sgf"));
-        let game = game.play_move((11, 6)).unwrap();
+        let game = game.play_move(BoardPosition::new(11, 6)).unwrap();
 
-        assert_eq!(game.get_cell((11, 5)), BoardCell::Empty);
-        assert_eq!(game.get_cell((10, 5)), BoardCell::Empty);
-        assert_eq!(game.get_cell((9, 5)), BoardCell::Empty);
-        assert_eq!(game.get_cell((10, 4)), BoardCell::Empty);
-        assert_eq!(game.get_cell((10, 3)), BoardCell::Empty);
-        assert_eq!(game.get_cell((10, 2)), BoardCell::Empty);
-        assert_eq!(game.get_cell((9, 3)), BoardCell::Empty);
+        assert_eq!(game.get_cell(BoardPosition::new(11, 5)), BoardCell::Empty);
+        assert_eq!(game.get_cell(BoardPosition::new(10, 5)), BoardCell::Empty);
+        assert_eq!(game.get_cell(BoardPosition::new(9, 5)), BoardCell::Empty);
+        assert_eq!(game.get_cell(BoardPosition::new(10, 4)), BoardCell::Empty);
+        assert_eq!(game.get_cell(BoardPosition::new(10, 3)), BoardCell::Empty);
+        assert_eq!(game.get_cell(BoardPosition::new(10, 2)), BoardCell::Empty);
+        assert_eq!(game.get_cell(BoardPosition::new(9, 3)), BoardCell::Empty);
 
-        assert_eq!(game.get_cell((9, 4)), BoardCell::Occupied(GoPlayer::White));
-        assert_eq!(game.get_cell((11, 4)), BoardCell::Occupied(GoPlayer::White));
+        assert_eq!(
+            game.get_cell(BoardPosition::new(9, 4)),
+            BoardCell::Occupied(GoPlayer::White)
+        );
+        assert_eq!(
+            game.get_cell(BoardPosition::new(11, 4)),
+            BoardCell::Occupied(GoPlayer::White)
+        );
     }
 
     #[test]
@@ -377,13 +430,13 @@ mod tests {
             "test_sgfs/capturing_has_precedence_over_suicide.sgf"
         ));
 
-        assert_eq!(game.get_cell((1, 0)), BoardCell::Empty);
+        assert_eq!(game.get_cell(BoardPosition::new(1, 0)), BoardCell::Empty);
     }
 
     #[test]
     fn cannot_commit_suicide() {
         let game = GoGame::from_sgf(include_str!("test_sgfs/cannot_commit_suicide.sgf"));
-        let result = game.play_move((0, 0));
+        let result = game.play_move(BoardPosition::new(0, 0));
 
         assert_eq!(result, Err(MoveError::Suicidal));
     }
@@ -391,8 +444,41 @@ mod tests {
     #[test]
     fn ko_rule_simple() {
         let game = GoGame::from_sgf(include_str!("test_sgfs/ko_rule_simple.sgf"));
-        let result = game.play_move((2, 2));
+        let result = game.play_move(BoardPosition::new(2, 2));
 
         assert_eq!(result, Err(MoveError::Ko));
+    }
+
+    #[test]
+    fn out_of_bounds_moves_are_not_generated() {
+        let game = GoGame::from_sgf(include_str!("test_sgfs/puzzles/true_simple1.sgf"));
+        let moves = game.generate_moves();
+
+        assert_eq!(moves.len(), 5);
+    }
+
+    #[test]
+    fn pass_sets_last_move_pass() {
+        let game = GoGame::from_sgf(include_str!("test_sgfs/ko_rule_simple.sgf"));
+        let new_game = game.pass();
+
+        assert!(new_game.last_move_pass);
+    }
+
+    #[test]
+    fn move_clears_last_move_pass() {
+        let game = GoGame::from_sgf(include_str!("test_sgfs/ko_rule_simple.sgf"));
+        let game = game.pass();
+        let game = game.play_move(BoardPosition::new(13, 7)).unwrap();
+
+        assert!(!game.last_move_pass);
+    }
+
+    #[test]
+    fn pass_advances_player() {
+        let game = GoGame::from_sgf(include_str!("test_sgfs/ko_rule_simple.sgf"));
+        let new_game = game.pass();
+
+        assert_ne!(game.current_player, new_game.current_player);
     }
 }
