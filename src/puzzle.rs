@@ -121,12 +121,13 @@ impl AndOrNode {
 
 pub struct Puzzle {
     player: GoPlayer,
+    attacker: GoPlayer,
     tree: Graph<AndOrNode, ()>,
     root_id: NodeIndex,
 }
 
 impl Puzzle {
-    pub fn new(game: GoGame) -> Puzzle {
+    pub fn new(game: GoGame, attacker: GoPlayer) -> Puzzle {
         debug_assert_eq!(game.plys(), 0);
 
         let player = game.current_player;
@@ -137,9 +138,14 @@ impl Puzzle {
 
         Puzzle {
             player,
+            attacker,
             tree,
             root_id,
         }
+    }
+
+    fn defender(&self) -> GoPlayer {
+        self.attacker.flip()
     }
 
     fn develop_node(&mut self, node_id: NodeIndex) {
@@ -161,7 +167,8 @@ impl Puzzle {
         debug_assert_ne!(
             moves.len(),
             0,
-            "{:?} to play\n{:?}",
+            "{:?} {:?} to play\n{:?}",
+            node,
             node.game.current_player,
             node.game.get_board()
         );
@@ -176,19 +183,26 @@ impl Puzzle {
             };
 
             let new_node = if !(*node.game.get_board())
-                .unconditionally_alive_blocks_for_player(self.player)
+                .unconditionally_alive_blocks_for_player(self.defender())
                 .is_empty()
             {
-                any_true = true;
-                AndOrNode::create_true_leaf(node_type, child)
+                if self.defender() == self.player {
+                    AndOrNode::create_true_leaf(node_type, child)
+                } else {
+                    AndOrNode::create_false_leaf(node_type, child)
+                }
             } else if false {
-                any_false = true;
                 // TODO: Work out how we lose
                 panic!()
             } else {
-                any_unknown = true;
                 AndOrNode::create_unknown_leaf(node_type, child)
             };
+
+            match new_node.value {
+                NodeValue::True => any_true = true,
+                NodeValue::False => any_false = true,
+                NodeValue::Unknown => any_unknown = true,
+            }
 
             let new_node_id = self.tree.add_node(new_node);
 
@@ -368,7 +382,18 @@ mod tests {
     fn true_simple1() {
         let tsumego = GoGame::from_sgf(include_str!("test_sgfs/puzzles/true_simple1.sgf"));
 
-        let mut puzzle = Puzzle::new(tsumego);
+        let mut puzzle = Puzzle::new(tsumego, GoPlayer::White);
+
+        puzzle.solve();
+
+        assert!(puzzle.root_node().is_proved());
+    }
+
+    #[test]
+    fn true_simple2() {
+        let tsumego = GoGame::from_sgf(include_str!("test_sgfs/puzzles/true_simple2.sgf"));
+
+        let mut puzzle = Puzzle::new(tsumego, GoPlayer::Black);
 
         puzzle.solve();
 
