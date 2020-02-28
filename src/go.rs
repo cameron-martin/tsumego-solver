@@ -411,21 +411,16 @@ mod tests {
         let game = GoGame::from_sgf(include_str!("test_sgfs/complex_capture.sgf"));
         let game = game.play_move(BoardPosition::new(11, 6)).unwrap();
 
-        assert_eq!(game.get_cell(BoardPosition::new(11, 5)), BoardCell::Empty);
-        assert_eq!(game.get_cell(BoardPosition::new(10, 5)), BoardCell::Empty);
-        assert_eq!(game.get_cell(BoardPosition::new(9, 5)), BoardCell::Empty);
-        assert_eq!(game.get_cell(BoardPosition::new(10, 4)), BoardCell::Empty);
-        assert_eq!(game.get_cell(BoardPosition::new(10, 3)), BoardCell::Empty);
-        assert_eq!(game.get_cell(BoardPosition::new(10, 2)), BoardCell::Empty);
-        assert_eq!(game.get_cell(BoardPosition::new(9, 3)), BoardCell::Empty);
-
         assert_eq!(
-            game.get_cell(BoardPosition::new(9, 4)),
-            BoardCell::Occupied(GoPlayer::White)
-        );
-        assert_eq!(
-            game.get_cell(BoardPosition::new(11, 4)),
-            BoardCell::Occupied(GoPlayer::White)
+            format!("{:?}", game.get_board()),
+            "................\n\
+             .b.b.bbww.w.....\n\
+             .......bww.w.w..\n\
+             ...b.bb.w..wb...\n\
+             ....b...ww.w....\n\
+             ...b..w.w...w...\n\
+             .........www....\n\
+             ................\n"
         );
     }
 
