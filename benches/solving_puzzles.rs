@@ -1,5 +1,5 @@
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
-use tsumego_solver::go::{GoGame};
+use tsumego_solver::go::{GoGame, GoPlayer};
 use tsumego_solver::puzzle::{Puzzle};
 
 fn criterion_benchmark(c: &mut Criterion) {
@@ -7,7 +7,7 @@ fn criterion_benchmark(c: &mut Criterion) {
         let tsumego = black_box(GoGame::from_sgf(include_str!("../src/test_sgfs/puzzles/true_simple1.sgf")));
 
         b.iter(|| {
-            let mut puzzle = Puzzle::new(tsumego.clone());
+            let mut puzzle = Puzzle::new(tsumego.clone(), GoPlayer::Black);
 
             puzzle.solve();
         })
