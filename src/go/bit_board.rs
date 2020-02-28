@@ -104,6 +104,10 @@ impl BitBoard {
         self.0 == 0
     }
 
+    pub fn is_set(self, position: BoardPosition) -> bool {
+        !(self & Self::singleton(position)).is_empty()
+    }
+
     pub fn flood_fill(self, mask: BitBoard) -> BitBoard {
         let mut filled = self & mask;
 
@@ -152,6 +156,11 @@ impl BitBoard {
 
     pub fn first_cell(self) -> BoardPosition {
         BoardPosition(self.0.leading_zeros())
+    }
+
+    // Gets all single points on the board
+    pub fn singletons(self) -> BitBoard {
+        self & !self.shift_up() & !self.shift_down() & !self.shift_left() & !self.shift_right()
     }
 }
 
@@ -487,5 +496,34 @@ mod test {
         );
 
         assert_eq!(iterator.next(), None);
+    }
+
+    #[test]
+    fn singletons() {
+        let board = BitBoard(0b1000000000000000_0110000000000000_0000000000010000_0000000000000000_0000000000000000_0000000000000000_1000000000000000_1100000000000000);
+
+        assert_eq!(
+            format!("{:?}", board),
+            "1000000000000000\n\
+             0110000000000000\n\
+             0000000000010000\n\
+             0000000000000000\n\
+             0000000000000000\n\
+             0000000000000000\n\
+             1000000000000000\n\
+             1100000000000000\n"
+        );
+
+        assert_eq!(
+            format!("{:?}", board.singletons()),
+            "1000000000000000\n\
+             0000000000000000\n\
+             0000000000010000\n\
+             0000000000000000\n\
+             0000000000000000\n\
+             0000000000000000\n\
+             0000000000000000\n\
+             0000000000000000\n"
+        );
     }
 }

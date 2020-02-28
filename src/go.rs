@@ -4,10 +4,8 @@ mod benson;
 mod bit_board;
 pub use bit_board::{BitBoard, BoardPosition};
 
-use im::conslist::ConsList;
 use std::fmt;
 use std::fmt::Debug;
-use std::sync::Arc;
 
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum BoardCell {
@@ -31,7 +29,7 @@ impl GoPlayer {
     }
 }
 
-#[derive(PartialEq, Clone)]
+#[derive(PartialEq, Clone, Copy)]
 pub struct GoBoard {
     white: BitBoard,
     black: BitBoard,
@@ -138,9 +136,10 @@ impl GoBoard {
     }
 }
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone, Copy)]
 pub struct GoGame {
-    boards: ConsList<GoBoard>,
+    ko_violations: BitBoard,
+    board: GoBoard,
     out_of_bounds: BitBoard,
     pub current_player: GoPlayer,
     pub last_move_pass: bool,
@@ -157,10 +156,9 @@ pub enum MoveError {
 
 impl GoGame {
     pub fn empty() -> GoGame {
-        let boards = ConsList::singleton(GoBoard::empty());
-
         GoGame {
-            boards,
+            board: GoBoard::empty(),
+            ko_violations: BitBoard::empty(),
             current_player: GoPlayer::Black,
             out_of_bounds: BitBoard::empty(),
             last_move_pass: false,
@@ -168,18 +166,17 @@ impl GoGame {
     }
 
     pub fn from_board(board: GoBoard, out_of_bounds: BitBoard) -> GoGame {
-        let boards = ConsList::singleton(board);
-
         GoGame {
-            boards,
+            board,
+            ko_violations: BitBoard::empty(),
             current_player: GoPlayer::Black,
             out_of_bounds,
             last_move_pass: false,
         }
     }
 
-    pub fn get_board(&self) -> Arc<GoBoard> {
-        self.boards.head().unwrap()
+    pub fn get_board(&self) -> GoBoard {
+        self.board
     }
 
     fn get_cell(&self, position: BoardPosition) -> BoardCell {
@@ -215,11 +212,13 @@ impl GoGame {
             return Err(MoveError::OutOfBounds);
         }
 
-        let mut new_board = self.get_board().as_ref().clone();
+        let next_player = self.current_player.flip();
+
+        let mut new_board = self.get_board().clone();
         new_board.set_cell(position, BoardCell::Occupied(self.current_player));
 
         // Remove dead groups owned by other player
-        new_board.remove_dead_groups_for_player(self.current_player.flip());
+        new_board.remove_dead_groups_for_player(next_player);
 
         // Evaluate suicide
         if !new_board.group_has_liberties(position) {
@@ -227,13 +226,18 @@ impl GoGame {
         }
 
         // Evaluate ko
-        if self.boards.iter().any(|board| *board == new_board) {
+        if self.ko_violations.is_set(position) {
             return Err(MoveError::Ko);
         }
 
+        let ko_violations = (self.board.get_bitboard_for_player(next_player)
+            & !new_board.get_bitboard_for_player(next_player))
+        .singletons();
+
         Ok(GoGame {
-            boards: self.boards.cons(new_board),
-            current_player: self.current_player.flip(),
+            ko_violations,
+            board: new_board,
+            current_player: next_player,
             out_of_bounds: self.out_of_bounds,
             last_move_pass: false,
         })
@@ -241,7 +245,8 @@ impl GoGame {
 
     pub fn pass(&self) -> GoGame {
         GoGame {
-            boards: self.boards.cons(self.get_board()),
+            board: self.board,
+            ko_violations: BitBoard::empty(),
             current_player: self.current_player.flip(),
             out_of_bounds: self.out_of_bounds,
             last_move_pass: true,
@@ -260,9 +265,9 @@ impl GoGame {
         games
     }
 
-    pub fn plys(&self) -> usize {
-        self.boards.len() - 1
-    }
+    // pub fn plys(&self) -> usize {
+    //     self.boards.len() - 1
+    // }
 }
 
 impl GoGame {
@@ -447,6 +452,13 @@ mod tests {
         let result = game.play_move(BoardPosition::new(2, 2));
 
         assert_eq!(result, Err(MoveError::Ko));
+    }
+
+    #[test]
+    fn capture_two_recapture_one_not_ko_violation() {
+        let game = GoGame::from_sgf(include_str!("test_sgfs/capture_two_recapture_one.sgf"));
+
+        game.play_move(BoardPosition::new(3, 2)).unwrap();
     }
 
     #[test]

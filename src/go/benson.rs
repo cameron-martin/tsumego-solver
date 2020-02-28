@@ -109,7 +109,7 @@ mod tests {
 
         assert_eq!(
             game.get_board().unconditionally_alive_blocks(),
-            *answer.get_board(),
+            answer.get_board(),
         );
     }
 }

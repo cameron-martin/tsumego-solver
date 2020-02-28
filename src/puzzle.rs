@@ -128,7 +128,7 @@ pub struct Puzzle {
 
 impl Puzzle {
     pub fn new(game: GoGame, attacker: GoPlayer) -> Puzzle {
-        debug_assert_eq!(game.plys(), 0);
+        // debug_assert_eq!(game.plys(), 0);
 
         let player = game.current_player;
 
@@ -182,7 +182,9 @@ impl Puzzle {
                 NodeType::And
             };
 
-            let new_node = if !(*node.game.get_board())
+            let new_node = if !node
+                .game
+                .get_board()
                 .unconditionally_alive_blocks_for_player(self.defender())
                 .is_empty()
             {
