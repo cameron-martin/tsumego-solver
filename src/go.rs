@@ -3,9 +3,28 @@
 mod benson;
 mod bit_board;
 pub use bit_board::{BitBoard, BoardPosition};
+use std::fmt::{Display, Write};
 
 use std::fmt;
 use std::fmt::Debug;
+use std::fmt::Formatter;
+
+#[derive(Debug)]
+pub enum Move {
+    PassTwice,
+    PassOnce,
+    Place(BoardPosition),
+}
+
+impl Display for Move {
+    fn fmt(&self, f: &mut Formatter) -> Result<(), fmt::Error> {
+        match self {
+            Move::PassOnce => f.write_str("Pass (once)"),
+            Move::PassTwice => f.write_str("Pass (twice)"),
+            Move::Place(position) => f.write_fmt(format_args!("{}", position)),
+        }
+    }
+}
 
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum BoardCell {
@@ -39,10 +58,14 @@ impl Debug for GoBoard {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         for j in 0..BitBoard::height() {
             for i in 0..BitBoard::width() {
-                f.write_str(match self.get_cell(BoardPosition::new(i, j)) {
-                    BoardCell::Empty => ".",
-                    BoardCell::Occupied(GoPlayer::White) => "w",
-                    BoardCell::Occupied(GoPlayer::Black) => "b",
+                if i != 0 {
+                    f.write_char(' ')?;
+                }
+
+                f.write_char(match self.get_cell(BoardPosition::new(i, j)) {
+                    BoardCell::Empty => '.',
+                    BoardCell::Occupied(GoPlayer::White) => 'w',
+                    BoardCell::Occupied(GoPlayer::Black) => 'b',
                 })?;
             }
             f.write_str("\n")?;
@@ -95,7 +118,7 @@ impl GoBoard {
         BoardCell::Empty
     }
 
-    fn get_bitboard_for_player(&self, player: GoPlayer) -> BitBoard {
+    pub fn get_bitboard_for_player(&self, player: GoPlayer) -> BitBoard {
         match player {
             GoPlayer::Black => self.black,
             GoPlayer::White => self.white,
@@ -140,7 +163,7 @@ impl GoBoard {
 pub struct GoGame {
     ko_violations: BitBoard,
     board: GoBoard,
-    out_of_bounds: BitBoard,
+    pub out_of_bounds: BitBoard,
     pub current_player: GoPlayer,
     pub last_move_pass: bool,
 }
@@ -187,7 +210,7 @@ impl GoGame {
         !(BitBoard::singleton(position) & self.out_of_bounds).is_empty()
     }
 
-    fn empty_cells(&self) -> BitBoard {
+    pub fn empty_cells(&self) -> BitBoard {
         self.get_board().empty_cells() & !self.out_of_bounds
     }
 
@@ -230,9 +253,18 @@ impl GoGame {
             return Err(MoveError::Ko);
         }
 
-        let ko_violations = (self.board.get_bitboard_for_player(next_player)
-            & !new_board.get_bitboard_for_player(next_player))
-        .singletons();
+        let ko_violations = if (BitBoard::singleton(position).immediate_exterior()
+            & self
+                .get_board()
+                .get_bitboard_for_player(self.current_player))
+        .is_empty()
+        {
+            (self.board.get_bitboard_for_player(next_player)
+                & !new_board.get_bitboard_for_player(next_player))
+            .singletons()
+        } else {
+            BitBoard::empty()
+        };
 
         Ok(GoGame {
             ko_violations,
@@ -253,12 +285,12 @@ impl GoGame {
         }
     }
 
-    pub fn generate_moves(&self) -> Vec<GoGame> {
+    pub fn generate_moves(&self) -> Vec<(GoGame, Move)> {
         let mut games = Vec::new();
 
         for position in self.empty_cells().positions() {
             if let Ok(game) = self.play_move(position) {
-                games.push(game);
+                games.push((game, Move::Place(position)));
             }
         }
 
@@ -413,14 +445,14 @@ mod tests {
 
         assert_eq!(
             format!("{:?}", game.get_board()),
-            "................\n\
-             .b.b.bbww.w.....\n\
-             .......bww.w.w..\n\
-             ...b.bb.w..wb...\n\
-             ....b...ww.w....\n\
-             ...b..w.w...w...\n\
-             .........www....\n\
-             ................\n"
+            ". . . . . . . . . . . . . . . .\n\
+             . b . b . b b w w . w . . . . .\n\
+             . . . . . . . b w w . w . w . .\n\
+             . . . b . b b . w . . w b . . .\n\
+             . . . . b . . . w w . w . . . .\n\
+             . . . b . . w . w . . . w . . .\n\
+             . . . . . . . . . w w w . . . .\n\
+             . . . . . . . . . . . . . . . .\n"
         );
     }
 
@@ -454,6 +486,15 @@ mod tests {
         let game = GoGame::from_sgf(include_str!("test_sgfs/capture_two_recapture_one.sgf"));
 
         game.play_move(BoardPosition::new(3, 2)).unwrap();
+    }
+
+    #[test]
+    fn capturing_single_and_joining_group_does_not_trigger_ko() {
+        let game = GoGame::from_sgf(include_str!("test_sgfs/capture_single_join_group.sgf"));
+
+        let result = game.play_move(BoardPosition::new(2, 1));
+
+        assert!(result.is_ok());
     }
 
     #[test]

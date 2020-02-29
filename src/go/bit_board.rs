@@ -1,5 +1,5 @@
 use std::fmt;
-use std::fmt::Debug;
+use std::fmt::{Debug, Display, Formatter};
 use std::ops::{BitAnd, BitOr, Not};
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
@@ -8,6 +8,16 @@ pub struct BoardPosition(u32);
 impl BoardPosition {
     pub fn new(column: u8, row: u8) -> BoardPosition {
         BoardPosition((column + BitBoard::width() * row).into())
+    }
+}
+
+impl Display for BoardPosition {
+    fn fmt(&self, f: &mut Formatter) -> Result<(), fmt::Error> {
+        let y = self.0 / BitBoard::width() as u32;
+
+        let x = self.0 - (BitBoard::width() as u32 * y);
+
+        f.write_fmt(format_args!("({}, {})", x, y))
     }
 }
 

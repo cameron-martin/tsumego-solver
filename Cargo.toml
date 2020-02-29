@@ -9,6 +9,8 @@ edition = "2018"
 [dependencies]
 sgf-parser = "2.4.0"
 petgraph = "0.5.0"
+cursive = "0.14"
+clap = "2.33.0"
 
 [dev-dependencies]
 criterion = "0.3.1"

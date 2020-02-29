@@ -112,4 +112,14 @@ mod tests {
             answer.get_board(),
         );
     }
+
+    #[test]
+    fn bug1() {
+        let game = GoGame::from_sgf(include_str!("../test_sgfs/puzzles/true_simple2.sgf"));
+
+        assert!(game
+            .get_board()
+            .unconditionally_alive_blocks_for_player(GoPlayer::White)
+            .is_empty());
+    }
 }
