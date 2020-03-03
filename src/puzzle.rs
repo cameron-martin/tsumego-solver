@@ -1,7 +1,8 @@
 use crate::go::{GoGame, GoPlayer, Move};
-use petgraph::graph::NodeIndex;
+use petgraph::stable_graph::NodeIndex;
+use petgraph::stable_graph::StableGraph;
 use petgraph::visit::EdgeRef;
-use petgraph::{Direction, Graph};
+use petgraph::Direction;
 use std::cmp::Ordering;
 use std::fmt;
 use std::fmt::{Debug, Formatter};
@@ -150,12 +151,16 @@ impl AndOrNode {
     pub fn is_disproved(&self) -> bool {
         self.disproof_number == ProofNumber::finite(0)
     }
+
+    pub fn is_solved(&self) -> bool {
+        self.is_proved() || self.is_disproved()
+    }
 }
 
 pub struct Puzzle {
     player: GoPlayer,
     attacker: GoPlayer,
-    pub tree: Graph<AndOrNode, Move>,
+    pub tree: StableGraph<AndOrNode, Move>,
     pub root_id: NodeIndex,
 }
 
@@ -165,7 +170,7 @@ impl Puzzle {
 
         let player = game.current_player;
 
-        let mut tree = Graph::<AndOrNode, Move>::new();
+        let mut tree = StableGraph::<AndOrNode, Move>::new();
 
         let root_id = tree.add_node(AndOrNode::create_non_terminal_leaf(NodeType::Or, game));
 
@@ -266,7 +271,7 @@ impl Puzzle {
 
             let mut neighbours = self.tree.neighbors(current_node_id);
 
-            if neighbours.clone().next().is_none() {
+            if self.tree.neighbors(current_node_id).next().is_none() {
                 break;
             }
 
@@ -276,7 +281,7 @@ impl Puzzle {
 
                     neighbours
                         .find(|&child_id| {
-                            let child = &self.tree[child_id];
+                            let child = self.tree[child_id];
 
                             child.proof_number == node.proof_number
                         })
@@ -287,7 +292,7 @@ impl Puzzle {
 
                     neighbours
                         .find(|&child_id| {
-                            let child = &self.tree[child_id];
+                            let child = self.tree[child_id];
 
                             child.disproof_number == node.disproof_number
                         })
@@ -306,7 +311,7 @@ impl Puzzle {
     }
 
     fn is_solved(&self) -> bool {
-        self.root_node().is_proved() || self.root_node().is_disproved()
+        self.root_node().is_solved()
     }
 
     fn solve_iteration(&mut self) {
@@ -321,6 +326,7 @@ impl Puzzle {
 
         loop {
             self.set_proof_and_disproof_numbers(current_node_id);
+            self.prune_if_solved(current_node_id);
 
             if let Some(parent_node_id) = self
                 .tree
@@ -367,6 +373,22 @@ impl Puzzle {
             NodeType::Or => {
                 node.proof_number = proof_number_min;
                 node.disproof_number = disproof_number_sum;
+            }
+        }
+    }
+
+    fn prune_if_solved(&mut self, node_id: NodeIndex) {
+        // Don't prune the root
+        if node_id == self.root_id {
+            return;
+        }
+
+        let node = self.tree[node_id];
+
+        if node.is_solved() {
+            let mut walker = self.tree.neighbors(node_id).detach();
+            while let Some(child_id) = walker.next_node(&self.tree) {
+                self.tree.remove_node(child_id);
             }
         }
     }
