@@ -201,7 +201,11 @@ impl Puzzle {
         } else {
             let new_node_id = self
                 .tree
-                .add_node(AndOrNode::create_false_leaf(node_type, node.game.pass()));
+                .add_node(if node.game.current_player == self.player {
+                    AndOrNode::create_false_leaf(node_type, node.game.pass())
+                } else {
+                    AndOrNode::create_true_leaf(node_type, node.game.pass())
+                });
 
             self.tree.add_edge(node_id, new_node_id, Move::PassTwice);
 
@@ -225,9 +229,9 @@ impl Puzzle {
                 } else {
                     AndOrNode::create_false_leaf(node_type, child)
                 }
-            } else if (!child
-                .out_of_bounds & !child.get_board().get_bitboard_for_player(self.attacker))
-                .is_empty()
+            } else if (!child.out_of_bounds
+                & !child.get_board().get_bitboard_for_player(self.attacker))
+            .is_empty()
             {
                 if self.attacker == self.player {
                     AndOrNode::create_true_leaf(node_type, child)
@@ -378,20 +382,16 @@ mod tests {
         assert!(puzzle.root_node().is_proved());
     }
 
-    // #[test]
-    // fn true_simple2() {
-    //     let tsumego = GoGame::from_sgf(include_str!("test_sgfs/puzzles/true_simple2.sgf"));
+    #[test]
+    fn true_simple2() {
+        let tsumego = GoGame::from_sgf(include_str!("test_sgfs/puzzles/true_simple2.sgf"));
 
-    //     let mut puzzle = Puzzle::new(tsumego, GoPlayer::Black);
+        let mut puzzle = Puzzle::new(tsumego, GoPlayer::Black);
 
-    //     puzzle.solve();
+        puzzle.solve();
 
-    //     assert!(
-    //         puzzle.root_node().is_proved(),
-    //         "{:?}",
-    //         puzzle.root_node(),
-    //     );
-    // }
+        assert!(puzzle.root_node().is_proved(), "{:?}", puzzle.root_node());
+    }
 
     #[test]
     fn true_simple3() {
