@@ -229,10 +229,7 @@ impl Puzzle {
                 } else {
                     AndOrNode::create_false_leaf(node_type, child)
                 }
-            } else if (!child.out_of_bounds
-                & !child.get_board().get_bitboard_for_player(self.attacker))
-            .is_empty()
-            {
+            } else if self.is_defender_dead(child) {
                 if self.attacker == self.player {
                     AndOrNode::create_true_leaf(node_type, child)
                 } else {
@@ -246,6 +243,19 @@ impl Puzzle {
 
             self.tree.add_edge(node_id, new_node_id, board_move);
         }
+    }
+
+    /// A conservative estimate on whether the group is dead.
+    /// true means it's definitely dead, false otherwise
+    fn is_defender_dead(&self, game: GoGame) -> bool {
+        let attacker_alive = game
+            .out_of_bounds
+            .expand_one()
+            .flood_fill(game.get_board().get_bitboard_for_player(self.attacker));
+
+        let maximum_living_shape = !attacker_alive & !game.out_of_bounds;
+
+        maximum_living_shape.interior().count() < 2
     }
 
     fn select_most_proving_node(&self, start_node_id: NodeIndex) -> NodeIndex {

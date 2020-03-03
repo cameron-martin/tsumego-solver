@@ -172,6 +172,10 @@ impl BitBoard {
     pub fn singletons(self) -> BitBoard {
         self & !self.shift_up() & !self.shift_down() & !self.shift_left() & !self.shift_right()
     }
+
+    pub fn count(self) -> u32 {
+        self.0.count_ones()
+    }
 }
 
 pub struct BitBoardGroupIterator {
