@@ -1,6 +1,6 @@
 mod proof_number;
 
-use crate::go::{GoGame, GoPlayer, Move, BoardPosition};
+use crate::go::{GoGame, GoPlayer, Move};
 use proof_number::ProofNumber;
 use petgraph::stable_graph::NodeIndex;
 use petgraph::stable_graph::StableGraph;
@@ -338,7 +338,7 @@ impl Puzzle {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::go::GoGame;
+    use crate::go::{GoGame, BoardPosition};
 
     #[test]
     fn true_simple1() {
