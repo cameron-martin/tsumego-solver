@@ -1,6 +1,6 @@
 mod proof_number;
 
-use crate::go::{GoGame, GoPlayer, Move};
+use crate::go::{GoGame, GoPlayer, Move, BoardPosition};
 use proof_number::ProofNumber;
 use petgraph::stable_graph::NodeIndex;
 use petgraph::stable_graph::StableGraph;
@@ -15,6 +15,15 @@ pub enum NodeType {
     Or,
 }
 
+impl NodeType {
+    fn flip(&self) -> NodeType {
+        match self {
+            NodeType::And => NodeType::Or,
+            NodeType::Or => NodeType::And,
+        }
+    }
+}
+
 impl Debug for NodeType {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         f.write_str(match self {
@@ -26,50 +35,42 @@ impl Debug for NodeType {
 
 #[derive(Clone, Copy)]
 pub struct AndOrNode {
-    of_type: NodeType,
     proof_number: ProofNumber,
     disproof_number: ProofNumber,
-    game: GoGame,
 }
 
 impl Debug for AndOrNode {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         f.write_fmt(format_args!(
-            "Type: {:?}, Proof/Disproof Numbers: {:?}/{:?}, To Play: {:?}, Board:\n{:?}",
-            self.of_type,
+            "Proof/Disproof Numbers: {:?}/{:?}",
+            // self.of_type,
             self.proof_number,
             self.disproof_number,
-            self.game.current_player,
-            self.game.get_board()
+            // self.game.current_player,
+            // self.game.get_board()
         ))
     }
 }
 
 impl AndOrNode {
-    pub fn create_non_terminal_leaf(of_type: NodeType, game: GoGame) -> AndOrNode {
+    pub fn create_non_terminal_leaf() -> AndOrNode {
         AndOrNode {
-            of_type,
             proof_number: ProofNumber::finite(1),
             disproof_number: ProofNumber::finite(1),
-            game,
         }
     }
 
-    pub fn create_true_leaf(of_type: NodeType, game: GoGame) -> AndOrNode {
+    pub fn create_true_leaf() -> AndOrNode {
         AndOrNode {
-            of_type,
             proof_number: ProofNumber::finite(0),
             disproof_number: ProofNumber::infinite(),
-            game,
         }
     }
 
-    pub fn create_false_leaf(of_type: NodeType, game: GoGame) -> AndOrNode {
+    pub fn create_false_leaf() -> AndOrNode {
         AndOrNode {
-            of_type,
             proof_number: ProofNumber::infinite(),
             disproof_number: ProofNumber::finite(0),
-            game,
         }
     }
 
@@ -91,6 +92,9 @@ pub struct Puzzle {
     attacker: GoPlayer,
     pub tree: StableGraph<AndOrNode, Move>,
     pub root_id: NodeIndex,
+    current_node_id: NodeIndex,
+    game_stack: Vec<GoGame>,
+    current_type: NodeType,
 }
 
 impl Puzzle {
@@ -101,13 +105,16 @@ impl Puzzle {
 
         let mut tree = StableGraph::<AndOrNode, Move>::new();
 
-        let root_id = tree.add_node(AndOrNode::create_non_terminal_leaf(NodeType::Or, game));
+        let root_id = tree.add_node(AndOrNode::create_non_terminal_leaf());
 
         Puzzle {
             player,
             attacker,
             tree,
             root_id,
+            current_node_id: root_id,
+            game_stack: vec![game],
+            current_type: NodeType::Or,
         }
     }
 
@@ -115,33 +122,31 @@ impl Puzzle {
         self.attacker.flip()
     }
 
-    fn develop_node(&mut self, node_id: NodeIndex) {
-        debug_assert!(self.tree.neighbors(node_id).next().is_none());
+    fn current_game(&self) -> GoGame {
+        *self.game_stack.last().unwrap()
+    }
 
-        let node = self.tree[node_id];
+    fn develop_current_node(&mut self) {
+        debug_assert!(self.tree.neighbors(self.current_node_id).next().is_none());
 
-        let mut moves = node.game.generate_moves();
+        let game = self.current_game();
 
-        let node_type = if node.game.current_player == self.player {
-            NodeType::And
-        } else {
-            NodeType::Or
-        };
+        let mut moves = game.generate_moves();
 
         let mut not_empty = false;
 
-        if !node.game.last_move_pass {
-            moves.push((node.game.pass(), Move::PassOnce));
+        if !game.last_move_pass {
+            moves.push((game.pass(), Move::PassOnce));
         } else {
             let new_node_id = self
                 .tree
-                .add_node(if node.game.current_player == self.player {
-                    AndOrNode::create_false_leaf(node_type, node.game.pass())
+                .add_node(if game.current_player == self.player {
+                    AndOrNode::create_false_leaf()
                 } else {
-                    AndOrNode::create_true_leaf(node_type, node.game.pass())
+                    AndOrNode::create_true_leaf()
                 });
 
-            self.tree.add_edge(node_id, new_node_id, Move::PassTwice);
+            self.tree.add_edge(self.current_node_id, new_node_id, Move::PassTwice);
 
             not_empty = true;
         }
@@ -149,7 +154,7 @@ impl Puzzle {
         debug_assert!(
             moves.len() != 0 || not_empty,
             "No moves found for node: {:?}",
-            node
+            game
         );
 
         for (child, board_move) in moves {
@@ -159,23 +164,23 @@ impl Puzzle {
                 .is_empty()
             {
                 if self.defender() == self.player {
-                    AndOrNode::create_true_leaf(node_type, child)
+                    AndOrNode::create_true_leaf()
                 } else {
-                    AndOrNode::create_false_leaf(node_type, child)
+                    AndOrNode::create_false_leaf()
                 }
             } else if self.is_defender_dead(child) {
                 if self.attacker == self.player {
-                    AndOrNode::create_true_leaf(node_type, child)
+                    AndOrNode::create_true_leaf()
                 } else {
-                    AndOrNode::create_false_leaf(node_type, child)
+                    AndOrNode::create_false_leaf()
                 }
             } else {
-                AndOrNode::create_non_terminal_leaf(node_type, child)
+                AndOrNode::create_non_terminal_leaf()
             };
 
             let new_node_id = self.tree.add_node(new_node);
 
-            self.tree.add_edge(node_id, new_node_id, board_move);
+            self.tree.add_edge(self.current_node_id, new_node_id, board_move);
         }
     }
 
@@ -192,25 +197,23 @@ impl Puzzle {
         maximum_living_shape.interior().count() < 2
     }
 
-    fn select_most_proving_node(&self, start_node_id: NodeIndex) -> NodeIndex {
-        let mut current_node_id = start_node_id;
-
+    fn select_most_proving_node(&mut self) {
         loop {
-            let node = self.tree[current_node_id];
-
-            let mut neighbours = self.tree.neighbors(current_node_id);
-
-            if self.tree.neighbors(current_node_id).next().is_none() {
+            
+            let mut outgoing_edges = self.tree.edges(self.current_node_id);
+            
+            if self.tree.neighbors(self.current_node_id).next().is_none() {
                 break;
             }
-
-            current_node_id = match node.of_type {
+            
+            let node = self.tree[self.current_node_id];
+            let chosen_edge = match self.current_type {
                 NodeType::Or => {
                     debug_assert_ne!(node.proof_number, ProofNumber::finite(0), "{:?}", node);
 
-                    neighbours
-                        .find(|&child_id| {
-                            let child = self.tree[child_id];
+                    outgoing_edges
+                        .find(|&edge_ref| {
+                            let child = self.tree[edge_ref.target()];
 
                             child.proof_number == node.proof_number
                         })
@@ -219,18 +222,20 @@ impl Puzzle {
                 NodeType::And => {
                     debug_assert_ne!(node.disproof_number, ProofNumber::finite(0), "{:?}", node);
 
-                    neighbours
-                        .find(|&child_id| {
-                            let child = self.tree[child_id];
+                    outgoing_edges
+                        .find(|&edge_ref| {
+                            let child = self.tree[edge_ref.target()];
 
                             child.disproof_number == node.disproof_number
                         })
                         .unwrap()
                 }
-            }
-        }
+            };
 
-        current_node_id
+            self.current_node_id = chosen_edge.target();
+            self.current_type = self.current_type.flip();
+            self.game_stack.push(self.current_game().play_move(*chosen_edge.weight()).unwrap());
+        }
     }
 
     pub fn solve(&mut self) {
@@ -244,35 +249,34 @@ impl Puzzle {
     }
 
     fn solve_iteration(&mut self) {
-        let most_proving_node_id = self.select_most_proving_node(self.root_id);
-
-        self.develop_node(most_proving_node_id);
-        self.update_ancestors(most_proving_node_id);
+        self.select_most_proving_node();
+        self.develop_current_node();
+        self.update_ancestors();
     }
 
-    fn update_ancestors(&mut self, node_id: NodeIndex) {
-        let mut current_node_id = node_id;
-
+    fn update_ancestors(&mut self) {
         loop {
-            self.set_proof_and_disproof_numbers(current_node_id);
-            self.prune_if_solved(current_node_id);
+            self.set_proof_and_disproof_numbers();
+            self.prune_if_solved();
 
             if let Some(parent_node_id) = self
                 .tree
-                .neighbors_directed(current_node_id, Direction::Incoming)
+                .neighbors_directed(self.current_node_id, Direction::Incoming)
                 .next()
             {
-                current_node_id = parent_node_id;
+                self.current_node_id = parent_node_id;
+                self.current_type = self.current_type.flip();
+                self.game_stack.pop();
             } else {
                 break;
             }
         }
     }
 
-    fn set_proof_and_disproof_numbers(&mut self, node_id: NodeIndex) {
+    fn set_proof_and_disproof_numbers(&mut self) {
         let children = self
             .tree
-            .neighbors(node_id)
+            .neighbors(self.current_node_id)
             .map(|child_id| self.tree[child_id]);
 
         let mut proof_number_sum = ProofNumber::finite(0);
@@ -293,8 +297,8 @@ impl Puzzle {
             }
         }
 
-        let node = &mut self.tree[node_id];
-        match node.of_type {
+        let node = &mut self.tree[self.current_node_id];
+        match self.current_type {
             NodeType::And => {
                 node.proof_number = proof_number_sum;
                 node.disproof_number = disproof_number_min;
@@ -306,16 +310,16 @@ impl Puzzle {
         }
     }
 
-    fn prune_if_solved(&mut self, node_id: NodeIndex) {
+    fn prune_if_solved(&mut self) {
         // Don't prune the root
-        if node_id == self.root_id {
+        if self.current_node_id == self.root_id {
             return;
         }
 
-        let node = self.tree[node_id];
+        let node = self.tree[self.current_node_id];
 
         if node.is_solved() {
-            let mut walker = self.tree.neighbors(node_id).detach();
+            let mut walker = self.tree.neighbors(self.current_node_id).detach();
             while let Some(child_id) = walker.next_node(&self.tree) {
                 self.tree.remove_node(child_id);
             }
@@ -324,6 +328,10 @@ impl Puzzle {
 
     fn root_node(&self) -> AndOrNode {
         self.tree[self.root_id]
+    }
+
+    pub fn first_move(&self) -> Move {
+        *self.tree.edges(self.root_id).find(|edge| self.tree[edge.target()].is_proved()).unwrap().weight()
     }
 }
 
@@ -341,6 +349,7 @@ mod tests {
         puzzle.solve();
 
         assert!(puzzle.root_node().is_proved());
+        assert_eq!(puzzle.first_move(), Move::Place(BoardPosition::new(4, 0)));
     }
 
     #[test]
@@ -352,6 +361,7 @@ mod tests {
         puzzle.solve();
 
         assert!(puzzle.root_node().is_proved(), "{:?}", puzzle.root_node());
+        assert_eq!(puzzle.first_move(), Move::Place(BoardPosition::new(2, 1)));
     }
 
     #[test]
@@ -363,5 +373,18 @@ mod tests {
         puzzle.solve();
 
         assert!(puzzle.root_node().is_proved(), "{:?}", puzzle.root_node());
+        assert_eq!(puzzle.first_move(), Move::Place(BoardPosition::new(5, 0)));
+    }
+
+    #[test]
+    fn true_simple4() {
+        let tsumego = GoGame::from_sgf(include_str!("test_sgfs/puzzles/true_simple4.sgf"));
+
+        let mut puzzle = Puzzle::new(tsumego, GoPlayer::White);
+
+        puzzle.solve();
+
+        assert!(puzzle.root_node().is_proved(), "{:?}", puzzle.root_node());
+        assert_eq!(puzzle.first_move(), Move::Place(BoardPosition::new(7, 0)));
     }
 }

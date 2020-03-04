@@ -3,7 +3,7 @@ use std::fmt::{Debug, Display, Formatter};
 use std::ops::{BitAnd, BitOr, Not};
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
-pub struct BoardPosition(u32);
+pub struct BoardPosition(u8);
 
 impl BoardPosition {
     pub fn new(column: u8, row: u8) -> BoardPosition {
@@ -13,9 +13,9 @@ impl BoardPosition {
 
 impl Display for BoardPosition {
     fn fmt(&self, f: &mut Formatter) -> Result<(), fmt::Error> {
-        let y = self.0 / BitBoard::width() as u32;
+        let y = self.0 / BitBoard::width();
 
-        let x = self.0 - (BitBoard::width() as u32 * y);
+        let x = self.0 - (BitBoard::width() * y);
 
         f.write_fmt(format_args!("({}, {})", x, y))
     }
@@ -165,7 +165,7 @@ impl BitBoard {
     }
 
     pub fn first_cell(self) -> BoardPosition {
-        BoardPosition(self.0.leading_zeros())
+        BoardPosition(self.0.leading_zeros() as u8)
     }
 
     // Gets all single points on the board

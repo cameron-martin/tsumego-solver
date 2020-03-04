@@ -1,5 +1,3 @@
-#![allow(dead_code)]
-
 mod benson;
 mod bit_board;
 pub use bit_board::{BitBoard, BoardPosition};
@@ -9,7 +7,7 @@ use std::fmt;
 use std::fmt::Debug;
 use std::fmt::Formatter;
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Move {
     PassTwice,
     PassOnce,
@@ -216,17 +214,25 @@ impl GoGame {
 
     pub fn play_move_for_player(
         &self,
-        position: BoardPosition,
+        go_move: Move,
         player: GoPlayer,
     ) -> Result<GoGame, MoveError> {
         if self.current_player != player {
             return Err(MoveError::OutOfTurn);
         }
 
-        self.play_move(position)
+        self.play_move(go_move)
     }
 
-    pub fn play_move(&self, position: BoardPosition) -> Result<GoGame, MoveError> {
+    pub fn play_move(&self, go_move: Move) -> Result<GoGame, MoveError> {
+        match go_move {
+            Move::Place(position) => self.play_placing_move(position),
+            Move::PassOnce => Ok(self.pass()),
+            Move::PassTwice => Ok(self.pass()),
+        }
+    }
+
+    pub fn play_placing_move(&self, position: BoardPosition) -> Result<GoGame, MoveError> {
         if self.get_cell(position) != BoardCell::Empty {
             return Err(MoveError::Occupied);
         }
@@ -289,7 +295,7 @@ impl GoGame {
         let mut games = Vec::new();
 
         for position in self.empty_cells().positions() {
-            if let Ok(game) = self.play_move(position) {
+            if let Ok(game) = self.play_placing_move(position) {
                 games.push((game, Move::Place(position)));
             }
         }
@@ -353,7 +359,7 @@ impl GoGame {
                     } => {
                         game = game
                             .play_move_for_player(
-                                BoardPosition::new(i - 1, j - 1),
+                                Move::Place(BoardPosition::new(i - 1, j - 1)),
                                 match color {
                                     Color::Black => GoPlayer::Black,
                                     Color::White => GoPlayer::White,
@@ -379,7 +385,7 @@ mod tests {
     fn can_add_stone() {
         let game = GoGame::empty();
         let game = game
-            .play_move_for_player(BoardPosition::new(0, 0), GoPlayer::Black)
+            .play_move_for_player(Move::Place(BoardPosition::new(0, 0)), GoPlayer::Black)
             .unwrap();
 
         assert_eq!(
@@ -392,7 +398,7 @@ mod tests {
     fn previous_board_is_not_mutated() {
         let old_game = GoGame::empty();
         let new_game = old_game
-            .play_move_for_player(BoardPosition::new(0, 0), GoPlayer::Black)
+            .play_move_for_player(Move::Place(BoardPosition::new(0, 0)), GoPlayer::Black)
             .unwrap();
 
         assert_ne!(
@@ -410,7 +416,7 @@ mod tests {
 
     #[test]
     fn player_advances_when_playing_move() {
-        let game = GoGame::empty().play_move(BoardPosition::new(0, 0)).unwrap();
+        let game = GoGame::empty().play_placing_move(BoardPosition::new(0, 0)).unwrap();
 
         assert_eq!(game.current_player, GoPlayer::White);
     }
@@ -418,15 +424,15 @@ mod tests {
     #[test]
     fn cannot_play_move_out_of_turn() {
         let result =
-            GoGame::empty().play_move_for_player(BoardPosition::new(0, 0), GoPlayer::White);
+            GoGame::empty().play_move_for_player(Move::Place(BoardPosition::new(0, 0)), GoPlayer::White);
 
         assert_eq!(result, Err(MoveError::OutOfTurn));
     }
 
     #[test]
     fn cannot_play_in_occupied_space() {
-        let game = GoGame::empty().play_move(BoardPosition::new(0, 0)).unwrap();
-        let result = game.play_move(BoardPosition::new(0, 0));
+        let game = GoGame::empty().play_placing_move(BoardPosition::new(0, 0)).unwrap();
+        let result = game.play_placing_move(BoardPosition::new(0, 0));
 
         assert_eq!(result, Err(MoveError::Occupied));
     }
@@ -441,7 +447,7 @@ mod tests {
     #[test]
     fn complex_groups_are_captured() {
         let game = GoGame::from_sgf(include_str!("test_sgfs/complex_capture.sgf"));
-        let game = game.play_move(BoardPosition::new(11, 6)).unwrap();
+        let game = game.play_placing_move(BoardPosition::new(11, 6)).unwrap();
 
         assert_eq!(
             format!("{:?}", game.get_board()),
@@ -468,7 +474,7 @@ mod tests {
     #[test]
     fn cannot_commit_suicide() {
         let game = GoGame::from_sgf(include_str!("test_sgfs/cannot_commit_suicide.sgf"));
-        let result = game.play_move(BoardPosition::new(0, 0));
+        let result = game.play_placing_move(BoardPosition::new(0, 0));
 
         assert_eq!(result, Err(MoveError::Suicidal));
     }
@@ -476,7 +482,7 @@ mod tests {
     #[test]
     fn ko_rule_simple() {
         let game = GoGame::from_sgf(include_str!("test_sgfs/ko_rule_simple.sgf"));
-        let result = game.play_move(BoardPosition::new(2, 2));
+        let result = game.play_placing_move(BoardPosition::new(2, 2));
 
         assert_eq!(result, Err(MoveError::Ko));
     }
@@ -485,14 +491,14 @@ mod tests {
     fn capture_two_recapture_one_not_ko_violation() {
         let game = GoGame::from_sgf(include_str!("test_sgfs/capture_two_recapture_one.sgf"));
 
-        game.play_move(BoardPosition::new(3, 2)).unwrap();
+        game.play_placing_move(BoardPosition::new(3, 2)).unwrap();
     }
 
     #[test]
     fn capturing_single_and_joining_group_does_not_trigger_ko() {
         let game = GoGame::from_sgf(include_str!("test_sgfs/capture_single_join_group.sgf"));
 
-        let result = game.play_move(BoardPosition::new(2, 1));
+        let result = game.play_placing_move(BoardPosition::new(2, 1));
 
         assert!(result.is_ok());
     }
@@ -517,7 +523,7 @@ mod tests {
     fn move_clears_last_move_pass() {
         let game = GoGame::from_sgf(include_str!("test_sgfs/ko_rule_simple.sgf"));
         let game = game.pass();
-        let game = game.play_move(BoardPosition::new(13, 7)).unwrap();
+        let game = game.play_placing_move(BoardPosition::new(13, 7)).unwrap();
 
         assert!(!game.last_move_pass);
     }
