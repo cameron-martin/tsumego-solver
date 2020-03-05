@@ -38,6 +38,21 @@ fn criterion_benchmark(c: &mut Criterion) {
             puzzle.solve();
         })
     });
+
+    let mut medium = c.benchmark_group("medium");
+    medium.sample_size(10);
+
+    medium.bench_function("true medium 1", |b| {
+        let tsumego = black_box(GoGame::from_sgf(include_str!(
+            "../src/test_sgfs/puzzles/true_medium1.sgf"
+        )));
+
+        b.iter(|| {
+            let mut puzzle = Puzzle::new(tsumego.clone(), GoPlayer::Black);
+
+            puzzle.solve();
+        })
+    });
 }
 
 criterion_group!(benches, criterion_benchmark);

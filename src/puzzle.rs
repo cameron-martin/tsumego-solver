@@ -395,4 +395,16 @@ mod tests {
         assert!(puzzle.root_node().is_proved(), "{:?}", puzzle.root_node());
         assert_eq!(puzzle.first_move(), Move::Place(BoardPosition::new(7, 0)));
     }
+
+    #[test]
+    fn true_medium1() {
+        let tsumego = GoGame::from_sgf(include_str!("test_sgfs/puzzles/true_medium1.sgf"));
+
+        let mut puzzle = Puzzle::new(tsumego, GoPlayer::Black);
+
+        puzzle.solve();
+
+        assert!(puzzle.root_node().is_proved(), "{:?}", puzzle.root_node());
+        assert_eq!(puzzle.first_move(), Move::Place(BoardPosition::new(14, 2)));
+    }
 }
