@@ -416,22 +416,26 @@ mod tests {
 
     #[test]
     fn player_advances_when_playing_move() {
-        let game = GoGame::empty().play_placing_move(BoardPosition::new(0, 0)).unwrap();
+        let game = GoGame::empty()
+            .play_placing_move(BoardPosition::new(0, 0))
+            .unwrap();
 
         assert_eq!(game.current_player, GoPlayer::White);
     }
 
     #[test]
     fn cannot_play_move_out_of_turn() {
-        let result =
-            GoGame::empty().play_move_for_player(Move::Place(BoardPosition::new(0, 0)), GoPlayer::White);
+        let result = GoGame::empty()
+            .play_move_for_player(Move::Place(BoardPosition::new(0, 0)), GoPlayer::White);
 
         assert_eq!(result, Err(MoveError::OutOfTurn));
     }
 
     #[test]
     fn cannot_play_in_occupied_space() {
-        let game = GoGame::empty().play_placing_move(BoardPosition::new(0, 0)).unwrap();
+        let game = GoGame::empty()
+            .play_placing_move(BoardPosition::new(0, 0))
+            .unwrap();
         let result = game.play_placing_move(BoardPosition::new(0, 0));
 
         assert_eq!(result, Err(MoveError::Occupied));

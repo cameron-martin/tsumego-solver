@@ -1,11 +1,11 @@
 mod proof_number;
 
 use crate::go::{GoGame, GoPlayer, Move};
-use proof_number::ProofNumber;
 use petgraph::stable_graph::NodeIndex;
 use petgraph::stable_graph::StableGraph;
 use petgraph::visit::EdgeRef;
 use petgraph::Direction;
+use proof_number::ProofNumber;
 use std::fmt;
 use std::fmt::{Debug, Formatter};
 
@@ -138,15 +138,14 @@ impl Puzzle {
         if !game.last_move_pass {
             moves.push((game.pass(), Move::PassOnce));
         } else {
-            let new_node_id = self
-                .tree
-                .add_node(if game.current_player == self.player {
-                    AndOrNode::create_false_leaf()
-                } else {
-                    AndOrNode::create_true_leaf()
-                });
+            let new_node_id = self.tree.add_node(if game.current_player == self.player {
+                AndOrNode::create_false_leaf()
+            } else {
+                AndOrNode::create_true_leaf()
+            });
 
-            self.tree.add_edge(self.current_node_id, new_node_id, Move::PassTwice);
+            self.tree
+                .add_edge(self.current_node_id, new_node_id, Move::PassTwice);
 
             not_empty = true;
         }
@@ -180,7 +179,8 @@ impl Puzzle {
 
             let new_node_id = self.tree.add_node(new_node);
 
-            self.tree.add_edge(self.current_node_id, new_node_id, board_move);
+            self.tree
+                .add_edge(self.current_node_id, new_node_id, board_move);
         }
     }
 
@@ -199,13 +199,12 @@ impl Puzzle {
 
     fn select_most_proving_node(&mut self) {
         loop {
-            
             let mut outgoing_edges = self.tree.edges(self.current_node_id);
-            
+
             if self.tree.neighbors(self.current_node_id).next().is_none() {
                 break;
             }
-            
+
             let node = self.tree[self.current_node_id];
             let chosen_edge = match self.current_type {
                 NodeType::Or => {
@@ -234,7 +233,11 @@ impl Puzzle {
 
             self.current_node_id = chosen_edge.target();
             self.current_type = self.current_type.flip();
-            self.game_stack.push(self.current_game().play_move(*chosen_edge.weight()).unwrap());
+            self.game_stack.push(
+                self.current_game()
+                    .play_move(*chosen_edge.weight())
+                    .unwrap(),
+            );
         }
     }
 
@@ -331,14 +334,19 @@ impl Puzzle {
     }
 
     pub fn first_move(&self) -> Move {
-        *self.tree.edges(self.root_id).find(|edge| self.tree[edge.target()].is_proved()).unwrap().weight()
+        *self
+            .tree
+            .edges(self.root_id)
+            .find(|edge| self.tree[edge.target()].is_proved())
+            .unwrap()
+            .weight()
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::go::{GoGame, BoardPosition};
+    use crate::go::{BoardPosition, GoGame};
 
     #[test]
     fn true_simple1() {
