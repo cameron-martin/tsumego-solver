@@ -23,19 +23,21 @@ impl GoBoard {
                 let empty_intersections_in_regions = regions & self.empty_cells();
 
                 let unhealthy_regions = (empty_intersections_in_regions
-                    & !block.immediate_exterior())
+                    .and_not(block.immediate_exterior()))
                 .flood_fill(regions);
 
-                let healthy_regions = regions & !unhealthy_regions;
+                let healthy_regions = regions.and_not(unhealthy_regions);
 
                 let more_than_one_healthy_region = !healthy_regions.is_empty()
-                    && !(healthy_regions
-                        & !BitBoard::singleton(healthy_regions.first_cell())
-                            .flood_fill(healthy_regions))
+                    && !(healthy_regions.and_not(
+                        healthy_regions
+                            .first_cell_board()
+                            .flood_fill(healthy_regions),
+                    ))
                     .is_empty();
 
                 if !more_than_one_healthy_region {
-                    remaining_blocks = remaining_blocks & !block;
+                    remaining_blocks = remaining_blocks.and_not(block);
 
                     removed_blocks += 1;
                 }
@@ -45,8 +47,8 @@ impl GoBoard {
                 return remaining_blocks;
             }
 
-            let removed_blocks = blocks & !remaining_blocks;
-            regions = regions & !(removed_blocks.expand_one() & regions).flood_fill(regions);
+            let removed_blocks = blocks.and_not(remaining_blocks);
+            regions = regions.and_not((removed_blocks.expand_one() & regions).flood_fill(regions));
         }
     }
 

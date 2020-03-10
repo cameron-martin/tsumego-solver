@@ -82,7 +82,7 @@ impl GoBoard {
     }
 
     fn empty_cells(&self) -> BitBoard {
-        !(self.white | self.black)
+        self.white.nor(self.black)
     }
 
     fn set_cell(&mut self, position: BoardPosition, cell: BoardCell) {
@@ -90,8 +90,8 @@ impl GoBoard {
 
         match cell {
             BoardCell::Empty => {
-                self.white = self.white & !mask;
-                self.black = self.black & !mask;
+                self.white = self.white.and_not(mask);
+                self.black = self.black.and_not(mask);
             }
             BoardCell::Occupied(GoPlayer::Black) => {
                 self.black = self.black | mask;
@@ -209,7 +209,7 @@ impl GoGame {
     }
 
     pub fn empty_cells(&self) -> BitBoard {
-        self.get_board().empty_cells() & !self.out_of_bounds
+        self.get_board().empty_cells().and_not(self.out_of_bounds)
     }
 
     pub fn play_move_for_player(
@@ -265,8 +265,10 @@ impl GoGame {
                 .get_bitboard_for_player(self.current_player))
         .is_empty()
         {
-            (self.board.get_bitboard_for_player(next_player)
-                & !new_board.get_bitboard_for_player(next_player))
+            (self
+                .board
+                .get_bitboard_for_player(next_player)
+                .and_not(new_board.get_bitboard_for_player(next_player)))
             .singletons()
         } else {
             BitBoard::empty()

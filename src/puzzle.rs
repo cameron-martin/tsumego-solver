@@ -192,7 +192,7 @@ impl Puzzle {
             .expand_one()
             .flood_fill(game.get_board().get_bitboard_for_player(self.attacker));
 
-        let maximum_living_shape = !attacker_alive & !game.out_of_bounds;
+        let maximum_living_shape = attacker_alive.nor(game.out_of_bounds);
 
         maximum_living_shape.interior().count() < 2
     }
