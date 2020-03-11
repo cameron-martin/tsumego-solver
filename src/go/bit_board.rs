@@ -40,13 +40,12 @@ impl PartialEq for BitBoard {
 
 impl Debug for BitBoard {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let high_bits = unsafe { _mm_cvtsi128_si64(_mm_unpackhi_epi64(self.0, self.0)) };
-        let low_bits = unsafe { _mm_cvtsi128_si64(self.0) };
+        let high_bits: u64 = unsafe { mem::transmute(_mm_cvtsi128_si64(_mm_unpackhi_epi64(self.0, self.0))) };
+        let low_bits = unsafe { mem::transmute(_mm_cvtsi128_si64(self.0)) };
 
         for bits in &[high_bits, low_bits] {
-            for i in 0..4 {
-                let row = (bits << (i * Self::width())) >> ((Self::height() - 1) * Self::width());
-                f.write_str(&(format!("{:016b}", row) + "\n"))?;
+            for i in 1..5 {
+                f.write_str(&(format!("{:016b}", bits.rotate_left(i * 16) % 2u64.pow(16)) + "\n"))?;
             }
         }
 
@@ -80,7 +79,7 @@ impl Not for BitBoard {
 
 impl BitBoard {
     pub fn and_not(self, rhs: Self) -> Self {
-        unsafe { BitBoard(_mm_andnot_si128(self.0, rhs.0)) }
+        unsafe { BitBoard(_mm_andnot_si128(rhs.0, self.0)) }
     }
 
     pub fn nor(self, rhs: Self) -> Self {
@@ -103,7 +102,9 @@ impl BitBoard {
     }
 
     pub fn from_uint(int: u128) -> BitBoard {
-        unsafe { BitBoard(_mm_set_epi64x((int >> 64) as i64, int as i64)) }
+        let items: [i64; 2] = unsafe { mem::transmute(int) };
+
+        unsafe { BitBoard(_mm_set_epi64x(items[1], items[0])) }
     }
 
     pub fn top_edge() -> BitBoard {
@@ -157,11 +158,11 @@ impl BitBoard {
     }
 
     pub fn shift_left(self) -> BitBoard {
-        unsafe { BitBoard(_mm_sll_epi16(self.0, _mm_set1_epi16(1))) }
+        unsafe { BitBoard(_mm_sll_epi16(self.0, _mm_set_epi64x(0, 1))) }
     }
 
     pub fn shift_right(self) -> BitBoard {
-        unsafe { BitBoard(_mm_srl_epi16(self.0, _mm_set1_epi16(1))) }
+        unsafe { BitBoard(_mm_srl_epi16(self.0, _mm_set_epi64x(0, 1))) }
     }
 
     pub fn is_empty(&self) -> bool {
@@ -331,19 +332,84 @@ mod test {
     }
 
     #[test]
-    fn shift_right() {
-        let board = BitBoard::from_uint(0b0000000000000000_0000000000000000_0010000000000000_0000000000000000_0000000000000000_0000000000000000_0000000000000000_0000000000000000);
+    fn from_uint() {
+        let board = BitBoard::from_uint(0b0000000000000000_0000000000000000_0010000000000000_0000000000000000_0000000000000000_0000000100000000_0000000000000000_0000000000000000u128);
+
+        assert_eq!(
+            format!("{:?}", board),
+            "0000000000000000\n\
+             0000000000000000\n\
+             0010000000000000\n\
+             0000000000000000\n\
+             0000000000000000\n\
+             0000000100000000\n\
+             0000000000000000\n\
+             0000000000000000\n"
+        );
+    }
+
+    #[test]
+    fn shifts() {
+        let board = BitBoard::from_uint(0b1100011111000001_1000001110000001_0000000000000011_0000000000000111_1110000000000011_1110000000000000_1110000111110000_1110000111110000);
+
+        assert_eq!(
+            format!("{:?}", board),
+            "1100011111000001\n\
+             1000001110000001\n\
+             0000000000000011\n\
+             0000000000000111\n\
+             1110000000000011\n\
+             1110000000000000\n\
+             1110000111110000\n\
+             1110000111110000\n"
+        );
 
         assert_eq!(
             format!("{:?}", board.shift_right()),
-            "0000000000000000\n\
-             0000000000000000\n\
-             0001000000000000\n\
-             0000000000000000\n\
-             0000000000000000\n\
-             0000000000000000\n\
-             0000000000000000\n\
+            "0110001111100000\n\
+             0100000111000000\n\
+             0000000000000001\n\
+             0000000000000011\n\
+             0111000000000001\n\
+             0111000000000000\n\
+             0111000011111000\n\
+             0111000011111000\n"
+        );
+
+        assert_eq!(
+            format!("{:?}", board.shift_left()),
+            "1000111110000010\n\
+             0000011100000010\n\
+             0000000000000110\n\
+             0000000000001110\n\
+             1100000000000110\n\
+             1100000000000000\n\
+             1100001111100000\n\
+             1100001111100000\n"
+        );
+
+        assert_eq!(
+            format!("{:?}", board.shift_up()),
+            "1000001110000001\n\
+             0000000000000011\n\
+             0000000000000111\n\
+             1110000000000011\n\
+             1110000000000000\n\
+             1110000111110000\n\
+             1110000111110000\n\
              0000000000000000\n"
+        );
+
+        assert_eq!(
+            format!("{:?}", board.shift_down()),
+            "0000000000000000\n\
+             1100011111000001\n\
+             1000001110000001\n\
+             0000000000000011\n\
+             0000000000000111\n\
+             1110000000000011\n\
+             1110000000000000\n\
+             1110000111110000\n"
         );
     }
 
@@ -613,6 +679,48 @@ mod test {
              0000000000000000\n\
              0000000000000000\n\
              0000000000000000\n\
+             0000000000000000\n"
+        );
+    }
+
+    #[test]
+    fn first_cell_position() {
+        let board = BitBoard::from_uint(0b1000000000000000_0110000000000000_0000000000010000_0000000000000000_0000000000000000_0000000000000000_1000000000000000_1100000000000000);
+
+        assert_eq!(board.first_cell_position().0, 0);
+
+        let board = BitBoard::from_uint(0b0000000000000000_0110000000000000_0000000000010000_0000000000000000_0000000000000000_0000000000000000_1000000000000000_1100000000000000);
+
+        assert_eq!(board.first_cell_position().0, 17);
+
+        let board = BitBoard::from_uint(0b0000000000000000_0000000000000000_0000000000000000_0000000000000000_0000000000000000_0000000000000000_1000000000000000_1100000000000000);
+
+        assert_eq!(board.first_cell_position().0, 96);
+    }
+
+    #[test]
+    fn singleton() {
+        assert_eq!(
+            format!("{:?}", BitBoard::singleton(BoardPosition(8))),
+            "0000000010000000\n\
+             0000000000000000\n\
+             0000000000000000\n\
+             0000000000000000\n\
+             0000000000000000\n\
+             0000000000000000\n\
+             0000000000000000\n\
+             0000000000000000\n"
+        );
+
+        assert_eq!(
+            format!("{:?}", BitBoard::singleton(BoardPosition(100))),
+            "0000000000000000\n\
+             0000000000000000\n\
+             0000000000000000\n\
+             0000000000000000\n\
+             0000000000000000\n\
+             0000000000000000\n\
+             0000100000000000\n\
              0000000000000000\n"
         );
     }
