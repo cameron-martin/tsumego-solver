@@ -15,6 +15,14 @@ clap = "2.33.0"
 [dev-dependencies]
 criterion = "0.3.1"
 
+[lib]
+bench = false
+
+[[bin]]
+name = "debugger"
+path = "src/bin/debugger/main.rs"
+bench = false
+
 [[bench]]
 name = "moves"
 harness = false
