@@ -7,15 +7,34 @@
         {
             "type": "lldb",
             "request": "launch",
-            "name": "Debug executable 'tsumego-solver'",
+            "name": "Debug unit tests in library 'tsumego-solver'",
             "cargo": {
                 "args": [
-                    "build",
-                    "--bin=tsumego-solver",
+                    "test",
+                    "--no-run",
+                    "--lib",
                     "--package=tsumego-solver"
                 ],
                 "filter": {
                     "name": "tsumego-solver",
+                    "kind": "lib"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug executable 'debugger'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--bin=debugger",
+                    "--package=tsumego-solver"
+                ],
+                "filter": {
+                    "name": "debugger",
                     "kind": "bin"
                 }
             },
@@ -25,17 +44,74 @@
         {
             "type": "lldb",
             "request": "launch",
-            "name": "Debug unit tests in executable 'tsumego-solver'",
+            "name": "Debug unit tests in executable 'debugger'",
             "cargo": {
                 "args": [
                     "test",
                     "--no-run",
-                    "--bin=tsumego-solver",
+                    "--bin=debugger",
                     "--package=tsumego-solver"
                 ],
                 "filter": {
-                    "name": "tsumego-solver",
+                    "name": "debugger",
                     "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug benchmark 'moves'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--bench=moves",
+                    "--package=tsumego-solver"
+                ],
+                "filter": {
+                    "name": "moves",
+                    "kind": "bench"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug benchmark 'unconditional_life'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--bench=unconditional_life",
+                    "--package=tsumego-solver"
+                ],
+                "filter": {
+                    "name": "unconditional_life",
+                    "kind": "bench"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug benchmark 'solving_puzzles'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--bench=solving_puzzles",
+                    "--package=tsumego-solver"
+                ],
+                "filter": {
+                    "name": "solving_puzzles",
+                    "kind": "bench"
                 }
             },
             "args": [],

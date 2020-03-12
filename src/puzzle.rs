@@ -16,7 +16,7 @@ pub enum NodeType {
 }
 
 impl NodeType {
-    fn flip(&self) -> NodeType {
+    fn flip(self) -> NodeType {
         match self {
             NodeType::And => NodeType::Or,
             NodeType::Or => NodeType::And,
@@ -74,15 +74,15 @@ impl AndOrNode {
         }
     }
 
-    pub fn is_proved(&self) -> bool {
+    pub fn is_proved(self) -> bool {
         self.proof_number == ProofNumber::finite(0)
     }
 
-    pub fn is_disproved(&self) -> bool {
+    pub fn is_disproved(self) -> bool {
         self.disproof_number == ProofNumber::finite(0)
     }
 
-    pub fn is_solved(&self) -> bool {
+    pub fn is_solved(self) -> bool {
         self.is_proved() || self.is_disproved()
     }
 }
@@ -151,7 +151,7 @@ impl Puzzle {
         }
 
         debug_assert!(
-            moves.len() != 0 || not_empty,
+            !moves.is_empty() || not_empty,
             "No moves found for node: {:?}",
             game
         );

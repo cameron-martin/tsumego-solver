@@ -243,7 +243,7 @@ impl GoGame {
 
         let next_player = self.current_player.flip();
 
-        let mut new_board = self.get_board().clone();
+        let mut new_board = self.get_board();
         new_board.set_cell(position, BoardCell::Occupied(self.current_player));
 
         // Remove dead groups owned by other player

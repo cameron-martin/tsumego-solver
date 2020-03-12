@@ -56,12 +56,11 @@ fn create_layer(puzzle: Rc<Puzzle>, node_id: NodeIndex) -> LinearLayout {
         Margins::lrtb(0, 0, 0, 2),
         Button::new("Up", {
             let puzzle = puzzle.clone();
-            move |s| match parent_id {
-                Some(parent_id) => {
+            move |s| {
+                if let Some(parent_id) = parent_id {
                     s.pop_layer();
                     s.add_layer(create_layer(puzzle.clone(), parent_id));
                 }
-                None => {}
             }
         }),
     );
