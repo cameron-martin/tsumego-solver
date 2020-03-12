@@ -11,9 +11,11 @@ impl BoardPosition {
     pub fn new(column: u8, row: u8) -> BoardPosition {
         BoardPosition::from_index(column + BitBoard::width() * row)
     }
-    
+
     fn from_index(index: u8) -> BoardPosition {
-        BoardPosition(BitBoard::from_uint(0x8000_0000_0000_0000_0000_0000_0000_0000 >> index))
+        BoardPosition(BitBoard::from_uint(
+            0x8000_0000_0000_0000_0000_0000_0000_0000 >> index,
+        ))
     }
 }
 
@@ -227,8 +229,21 @@ impl BitBoard {
         }
     }
 
-    pub fn first_cell_position(self) -> BoardPosition {
-        BoardPosition::from_index(self.leading_zeros())
+    pub fn some_cell(self) -> BoardPosition {
+        unsafe {
+            let negated = _mm_sub_epi64(_mm_setzero_si128(), self.0);
+            let last_positions = _mm_and_si128(negated, self.0);
+
+            let last_position = _mm_unpacklo_epi64(last_positions, _mm_setzero_si128());
+
+            let n = if _mm_test_all_zeros(last_position, last_position) == 0 {
+                last_position
+            } else {
+                _mm_unpackhi_epi64(_mm_setzero_si128(), last_positions)
+            };
+
+            BoardPosition(BitBoard(n))
+        }
     }
 
     fn leading_zeros(self) -> u8 {
@@ -241,10 +256,6 @@ impl BitBoard {
         };
 
         leading_zeros as u8
-    }
-
-    pub fn first_cell_board(self) -> BitBoard {
-        BitBoard::singleton(self.first_cell_position())
     }
 
     // Gets all single points on the board
@@ -274,9 +285,7 @@ impl Iterator for BitBoardGroupIterator {
         if self.remaining_groups.is_empty() {
             None
         } else {
-            let first_group = self
-                .remaining_groups
-                .first_cell_board()
+            let first_group = BitBoard::singleton(self.remaining_groups.some_cell())
                 .flood_fill(self.remaining_groups);
 
             self.remaining_groups = self.remaining_groups.and_not(first_group);
@@ -297,7 +306,7 @@ impl Iterator for BitBoardPositionIterator {
         if self.remaining_positions.is_empty() {
             None
         } else {
-            let position = self.remaining_positions.first_cell_position();
+            let position = self.remaining_positions.some_cell();
 
             self.remaining_positions = self
                 .remaining_positions
@@ -433,23 +442,6 @@ mod test {
     }
 
     #[test]
-    fn first_cell_board() {
-        let board = BitBoard::from_uint(0b0000000000000000_0101011000000000_0000000100100000_0001011001101000_0000100000100000_0001000001110000_0000000000000000_0000000000000000);
-
-        assert_eq!(
-            format!("{:?}", board.first_cell_board()),
-            "0000000000000000\n\
-             0100000000000000\n\
-             0000000000000000\n\
-             0000000000000000\n\
-             0000000000000000\n\
-             0000000000000000\n\
-             0000000000000000\n\
-             0000000000000000\n"
-        );
-    }
-
-    #[test]
     fn first_cell2() {
         let board = BitBoard::from_uint(2596148429267413814265248164610048u128);
 
@@ -466,7 +458,7 @@ mod test {
         );
 
         assert_eq!(
-            format!("{:?}", board.first_cell_board()),
+            format!("{:?}", BitBoard::singleton(board.some_cell())),
             "0000000000000000\n\
              1000000000000000\n\
              0000000000000000\n\
@@ -499,10 +491,22 @@ mod test {
         assert_eq!(
             format!("{:?}", iterator.next().unwrap()),
             "0000000000000000\n\
-             0100000000000000\n\
              0000000000000000\n\
              0000000000000000\n\
+             0000000001100000\n\
+             0000000000100000\n\
+             0000000001110000\n\
              0000000000000000\n\
+             0000000000000000\n"
+        );
+
+        assert_eq!(
+            format!("{:?}", iterator.next().unwrap()),
+            "0000000000000000\n\
+             0000000000000000\n\
+             0000000000000000\n\
+             0000111000000000\n\
+             0000100000000000\n\
              0000000000000000\n\
              0000000000000000\n\
              0000000000000000\n"
@@ -523,23 +527,11 @@ mod test {
         assert_eq!(
             format!("{:?}", iterator.next().unwrap()),
             "0000000000000000\n\
+             0100000000000000\n\
              0000000000000000\n\
              0000000000000000\n\
-             0000111000000000\n\
-             0000100000000000\n\
              0000000000000000\n\
              0000000000000000\n\
-             0000000000000000\n"
-        );
-
-        assert_eq!(
-            format!("{:?}", iterator.next().unwrap()),
-            "0000000000000000\n\
-             0000000000000000\n\
-             0000000000000000\n\
-             0000000001100000\n\
-             0000000000100000\n\
-             0000000001110000\n\
              0000000000000000\n\
              0000000000000000\n"
         );
@@ -630,9 +622,9 @@ mod test {
         assert_eq!(
             format!("{:?}", BitBoard::singleton(iterator.next().unwrap())),
             "0000000000000000\n\
-             0100000000000000\n\
              0000000000000000\n\
              0000000000000000\n\
+             0000000001000000\n\
              0000000000000000\n\
              0000000000000000\n\
              0000000000000000\n\
@@ -654,9 +646,9 @@ mod test {
         assert_eq!(
             format!("{:?}", BitBoard::singleton(iterator.next().unwrap())),
             "0000000000000000\n\
+             0100000000000000\n\
              0000000000000000\n\
              0000000000000000\n\
-             0000000001000000\n\
              0000000000000000\n\
              0000000000000000\n\
              0000000000000000\n\
@@ -696,18 +688,18 @@ mod test {
     }
 
     #[test]
-    fn first_cell_position() {
+    fn some_cell() {
         let board = BitBoard::from_uint(0b1000000000000000_0110000000000000_0000000000010000_0000000000000000_0000000000000000_0000000000000000_1000000000000000_1100000000000000);
 
-        assert_eq!(board.first_cell_position(), BoardPosition::new(0, 0));
+        assert_eq!(board.some_cell(), BoardPosition::new(1, 7));
 
-        let board = BitBoard::from_uint(0b0000000000000000_0110000000000000_0000000000010000_0000000000000000_0000000000000000_0000000000000000_1000000000000000_1100000000000000);
+        let board = BitBoard::from_uint(0b1000000000000000_0110000000000000_0000000000010000_0000000000000000_0000000000000000_0000000000000000_1000000000000000_0000000000000000);
 
-        assert_eq!(board.first_cell_position(), BoardPosition::new(1, 1));
+        assert_eq!(board.some_cell(), BoardPosition::new(0, 6));
 
-        let board = BitBoard::from_uint(0b0000000000000000_0000000000000000_0000000000000000_0000000000000000_0000000000000000_0000000000000000_1000000000000000_1100000000000000);
+        let board = BitBoard::from_uint(0b0000000000000000_0100000000100000_0000000000000000_0000000000000000_0000000000000000_0000000000000000_0000000000000000_0000000000000000);
 
-        assert_eq!(board.first_cell_position(), BoardPosition::new(0, 6));
+        assert_eq!(board.some_cell(), BoardPosition::new(10, 1));
     }
 
     #[test]
