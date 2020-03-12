@@ -166,11 +166,11 @@ impl BitBoard {
     }
 
     pub fn shift_left(self) -> BitBoard {
-        unsafe { BitBoard(_mm_sll_epi16(self.0, _mm_set_epi64x(0, 1))) }
+        unsafe { BitBoard(_mm_slli_epi16(self.0, 1)) }
     }
 
     pub fn shift_right(self) -> BitBoard {
-        unsafe { BitBoard(_mm_srl_epi16(self.0, _mm_set_epi64x(0, 1))) }
+        unsafe { BitBoard(_mm_srli_epi16(self.0, 1)) }
     }
 
     pub fn is_empty(&self) -> bool {
