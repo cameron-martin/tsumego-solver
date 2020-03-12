@@ -118,6 +118,10 @@ impl Puzzle {
         }
     }
 
+    pub fn from_sgf(sgf_string: &str, attacker: GoPlayer) -> Puzzle {
+        Self::new(GoGame::from_sgf(sgf_string), attacker)
+    }
+
     fn defender(&self) -> GoPlayer {
         self.attacker.flip()
     }
