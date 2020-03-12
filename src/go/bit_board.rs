@@ -7,7 +7,7 @@ pub struct BoardPosition(u8);
 
 impl BoardPosition {
     pub fn new(column: u8, row: u8) -> BoardPosition {
-        BoardPosition((column + BitBoard::width() * row).into())
+        BoardPosition(column + BitBoard::width() * row)
     }
 }
 
