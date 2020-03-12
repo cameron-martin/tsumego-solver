@@ -8,7 +8,7 @@ use petgraph::Direction;
 use std::fs;
 use std::path::Path;
 use std::rc::Rc;
-use tsumego_solver::go::{GoGame, GoPlayer};
+use tsumego_solver::go::GoGame;
 use tsumego_solver::puzzle::Puzzle;
 
 fn load_puzzle() -> Puzzle {
@@ -20,29 +20,13 @@ fn load_puzzle() -> Puzzle {
                 .required(true)
                 .takes_value(true),
         )
-        .arg(
-            Arg::with_name("attacker")
-                .short("a")
-                .long("attacker")
-                .required(true)
-                .takes_value(true)
-                .possible_values(&["black", "white"]),
-        )
         .get_matches();
 
     let filename = matches.value_of("file").unwrap();
-    let attacker = matches.value_of("attacker").unwrap();
-    let attacker = if attacker == "white" {
-        GoPlayer::White
-    } else if attacker == "black" {
-        GoPlayer::Black
-    } else {
-        panic!();
-    };
 
     let game = GoGame::from_sgf(&fs::read_to_string(Path::new(filename)).unwrap());
 
-    Puzzle::new(game, attacker)
+    Puzzle::new(game)
 }
 
 fn create_layer(puzzle: Rc<Puzzle>, node_id: NodeIndex) -> LinearLayout {

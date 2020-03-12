@@ -98,8 +98,17 @@ pub struct Puzzle {
 }
 
 impl Puzzle {
-    pub fn new(game: GoGame, attacker: GoPlayer) -> Puzzle {
+    pub fn new(game: GoGame) -> Puzzle {
         // debug_assert_eq!(game.plys(), 0);
+
+        let attacker = if !(game.out_of_bounds.expand_one()
+            & game.get_board().get_bitboard_for_player(GoPlayer::White))
+        .is_empty()
+        {
+            GoPlayer::White
+        } else {
+            GoPlayer::Black
+        };
 
         let player = game.current_player;
 
@@ -116,6 +125,10 @@ impl Puzzle {
             game_stack: vec![game],
             current_type: NodeType::Or,
         }
+    }
+
+    pub fn from_sgf(sgf_string: &str) -> Puzzle {
+        Self::new(GoGame::from_sgf(sgf_string))
     }
 
     fn defender(&self) -> GoPlayer {
@@ -352,7 +365,7 @@ mod tests {
     fn true_simple1() {
         let tsumego = GoGame::from_sgf(include_str!("test_sgfs/puzzles/true_simple1.sgf"));
 
-        let mut puzzle = Puzzle::new(tsumego, GoPlayer::White);
+        let mut puzzle = Puzzle::new(tsumego);
 
         puzzle.solve();
 
@@ -364,7 +377,7 @@ mod tests {
     fn true_simple2() {
         let tsumego = GoGame::from_sgf(include_str!("test_sgfs/puzzles/true_simple2.sgf"));
 
-        let mut puzzle = Puzzle::new(tsumego, GoPlayer::Black);
+        let mut puzzle = Puzzle::new(tsumego);
 
         puzzle.solve();
 
@@ -376,7 +389,7 @@ mod tests {
     fn true_simple3() {
         let tsumego = GoGame::from_sgf(include_str!("test_sgfs/puzzles/true_simple3.sgf"));
 
-        let mut puzzle = Puzzle::new(tsumego, GoPlayer::Black);
+        let mut puzzle = Puzzle::new(tsumego);
 
         puzzle.solve();
 
@@ -388,7 +401,7 @@ mod tests {
     fn true_simple4() {
         let tsumego = GoGame::from_sgf(include_str!("test_sgfs/puzzles/true_simple4.sgf"));
 
-        let mut puzzle = Puzzle::new(tsumego, GoPlayer::White);
+        let mut puzzle = Puzzle::new(tsumego);
 
         puzzle.solve();
 
@@ -400,7 +413,7 @@ mod tests {
     fn true_medium1() {
         let tsumego = GoGame::from_sgf(include_str!("test_sgfs/puzzles/true_medium1.sgf"));
 
-        let mut puzzle = Puzzle::new(tsumego, GoPlayer::Black);
+        let mut puzzle = Puzzle::new(tsumego);
 
         puzzle.solve();
 
