@@ -5,19 +5,25 @@ use std::mem;
 use std::ops::{BitAnd, BitOr, Not};
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
-pub struct BoardPosition(u8);
+pub struct BoardPosition(BitBoard);
 
 impl BoardPosition {
     pub fn new(column: u8, row: u8) -> BoardPosition {
-        BoardPosition((column + BitBoard::width() * row).into())
+        BoardPosition::from_index(column + BitBoard::width() * row)
+    }
+    
+    fn from_index(index: u8) -> BoardPosition {
+        BoardPosition(BitBoard::from_uint(0x8000_0000_0000_0000_0000_0000_0000_0000 >> index))
     }
 }
 
 impl Display for BoardPosition {
     fn fmt(&self, f: &mut Formatter) -> Result<(), fmt::Error> {
-        let y = self.0 / BitBoard::width();
+        let index = self.0.leading_zeros();
 
-        let x = self.0 - (BitBoard::width() * y);
+        let y = index / BitBoard::width();
+
+        let x = index - (BitBoard::width() * y);
 
         f.write_fmt(format_args!("({}, {})", x, y))
     }
@@ -38,9 +44,12 @@ impl PartialEq for BitBoard {
     }
 }
 
+impl Eq for BitBoard {}
+
 impl Debug for BitBoard {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let high_bits: u64 = unsafe { mem::transmute(_mm_cvtsi128_si64(_mm_unpackhi_epi64(self.0, self.0))) };
+        let high_bits: u64 =
+            unsafe { mem::transmute(_mm_cvtsi128_si64(_mm_unpackhi_epi64(self.0, self.0))) };
         let low_bits = unsafe { mem::transmute(_mm_cvtsi128_si64(self.0)) };
 
         for bits in &[high_bits, low_bits] {
@@ -97,8 +106,7 @@ impl BitBoard {
     }
 
     pub fn singleton(position: BoardPosition) -> BitBoard {
-        // TODO: Optimise
-        BitBoard::from_uint(0x8000_0000_0000_0000_0000_0000_0000_0000 >> position.0)
+        position.0
     }
 
     pub fn from_uint(int: u128) -> BitBoard {
@@ -220,6 +228,10 @@ impl BitBoard {
     }
 
     pub fn first_cell_position(self) -> BoardPosition {
+        BoardPosition::from_index(self.leading_zeros())
+    }
+
+    fn leading_zeros(self) -> u8 {
         let high_bits = unsafe { _mm_cvtsi128_si64(_mm_unpackhi_epi64(self.0, self.0)) };
 
         let leading_zeros = if high_bits != 0 {
@@ -228,7 +240,7 @@ impl BitBoard {
             unsafe { _mm_cvtsi128_si64(self.0).leading_zeros() + 64 }
         };
 
-        BoardPosition(leading_zeros as u8)
+        leading_zeros as u8
     }
 
     pub fn first_cell_board(self) -> BitBoard {
@@ -687,21 +699,21 @@ mod test {
     fn first_cell_position() {
         let board = BitBoard::from_uint(0b1000000000000000_0110000000000000_0000000000010000_0000000000000000_0000000000000000_0000000000000000_1000000000000000_1100000000000000);
 
-        assert_eq!(board.first_cell_position().0, 0);
+        assert_eq!(board.first_cell_position(), BoardPosition::new(0, 0));
 
         let board = BitBoard::from_uint(0b0000000000000000_0110000000000000_0000000000010000_0000000000000000_0000000000000000_0000000000000000_1000000000000000_1100000000000000);
 
-        assert_eq!(board.first_cell_position().0, 17);
+        assert_eq!(board.first_cell_position(), BoardPosition::new(1, 1));
 
         let board = BitBoard::from_uint(0b0000000000000000_0000000000000000_0000000000000000_0000000000000000_0000000000000000_0000000000000000_1000000000000000_1100000000000000);
 
-        assert_eq!(board.first_cell_position().0, 96);
+        assert_eq!(board.first_cell_position(), BoardPosition::new(0, 6));
     }
 
     #[test]
     fn singleton() {
         assert_eq!(
-            format!("{:?}", BitBoard::singleton(BoardPosition(8))),
+            format!("{:?}", BitBoard::singleton(BoardPosition::new(8, 0))),
             "0000000010000000\n\
              0000000000000000\n\
              0000000000000000\n\
@@ -713,7 +725,7 @@ mod test {
         );
 
         assert_eq!(
-            format!("{:?}", BitBoard::singleton(BoardPosition(100))),
+            format!("{:?}", BitBoard::singleton(BoardPosition::new(4, 6))),
             "0000000000000000\n\
              0000000000000000\n\
              0000000000000000\n\
