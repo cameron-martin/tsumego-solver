@@ -1,16 +1,10 @@
 use criterion::{criterion_group, criterion_main, BatchSize, Criterion};
-use tsumego_solver::go::GoPlayer;
 use tsumego_solver::puzzle::Puzzle;
 
 fn criterion_benchmark(c: &mut Criterion) {
     c.bench_function("true simple 1", |b| {
         b.iter_batched(
-            || {
-                Puzzle::from_sgf(
-                    include_str!("../src/test_sgfs/puzzles/true_simple1.sgf"),
-                    GoPlayer::White,
-                )
-            },
+            || Puzzle::from_sgf(include_str!("../src/test_sgfs/puzzles/true_simple1.sgf")),
             |mut puzzle| puzzle.solve(),
             BatchSize::SmallInput,
         )
@@ -18,12 +12,7 @@ fn criterion_benchmark(c: &mut Criterion) {
 
     c.bench_function("true simple 2", |b| {
         b.iter_batched(
-            || {
-                Puzzle::from_sgf(
-                    include_str!("../src/test_sgfs/puzzles/true_simple2.sgf"),
-                    GoPlayer::Black,
-                )
-            },
+            || Puzzle::from_sgf(include_str!("../src/test_sgfs/puzzles/true_simple2.sgf")),
             |mut puzzle| puzzle.solve(),
             BatchSize::SmallInput,
         )
@@ -31,12 +20,7 @@ fn criterion_benchmark(c: &mut Criterion) {
 
     c.bench_function("true simple 3", |b| {
         b.iter_batched(
-            || {
-                Puzzle::from_sgf(
-                    include_str!("../src/test_sgfs/puzzles/true_simple3.sgf"),
-                    GoPlayer::Black,
-                )
-            },
+            || Puzzle::from_sgf(include_str!("../src/test_sgfs/puzzles/true_simple3.sgf")),
             |mut puzzle| puzzle.solve(),
             BatchSize::SmallInput,
         )
@@ -47,12 +31,7 @@ fn criterion_benchmark(c: &mut Criterion) {
 
     medium.bench_function("true medium 1", |b| {
         b.iter_batched(
-            || {
-                Puzzle::from_sgf(
-                    include_str!("../src/test_sgfs/puzzles/true_medium1.sgf"),
-                    GoPlayer::Black,
-                )
-            },
+            || Puzzle::from_sgf(include_str!("../src/test_sgfs/puzzles/true_medium1.sgf")),
             |mut puzzle| puzzle.solve(),
             BatchSize::SmallInput,
         )
