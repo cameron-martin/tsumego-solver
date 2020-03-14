@@ -24,13 +24,5 @@ path = "src/bin/debugger/main.rs"
 bench = false
 
 [[bench]]
-name = "moves"
-harness = false
-
-[[bench]]
-name = "unconditional_life"
-harness = false
-
-[[bench]]
-name = "solving_puzzles"
+name = "main"
 harness = false
