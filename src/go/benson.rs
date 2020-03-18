@@ -30,7 +30,7 @@ impl GoBoard {
 
                 let more_than_one_healthy_region = !healthy_regions.is_empty()
                     && !(healthy_regions
-                        & !BitBoard::singleton(healthy_regions.first_cell())
+                        & !BitBoard::singleton(healthy_regions.some_cell())
                             .flood_fill(healthy_regions))
                     .is_empty();
 
