@@ -272,7 +272,12 @@ impl Puzzle {
 
     fn update_ancestors(&mut self) {
         loop {
-            self.set_proof_and_disproof_numbers();
+            let has_changed = self.set_proof_and_disproof_numbers();
+
+            if !has_changed {
+                break;
+            }
+
             self.prune_if_solved();
 
             if let Some(parent_node_id) = self
@@ -289,7 +294,7 @@ impl Puzzle {
         }
     }
 
-    fn set_proof_and_disproof_numbers(&mut self) {
+    fn set_proof_and_disproof_numbers(&mut self) -> bool {
         let children = self
             .tree
             .neighbors(self.current_node_id)
@@ -316,12 +321,22 @@ impl Puzzle {
         let node = &mut self.tree[self.current_node_id];
         match self.current_type {
             NodeType::And => {
+                let has_changed = proof_number_sum != node.proof_number
+                    || disproof_number_min != node.disproof_number;
+
                 node.proof_number = proof_number_sum;
                 node.disproof_number = disproof_number_min;
+
+                has_changed
             }
             NodeType::Or => {
+                let has_changed = proof_number_min != node.proof_number
+                    || disproof_number_sum != node.disproof_number;
+
                 node.proof_number = proof_number_min;
                 node.disproof_number = disproof_number_sum;
+
+                has_changed
             }
         }
     }
