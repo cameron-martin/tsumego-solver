@@ -1,6 +1,6 @@
 mod proof_number;
 
-use crate::go::{GoGame, GoPlayer, Move};
+use crate::go::{GoGame, GoBoard, GoPlayer, Move};
 use petgraph::stable_graph::NodeIndex;
 use petgraph::stable_graph::StableGraph;
 use petgraph::visit::EdgeRef;
@@ -101,7 +101,7 @@ impl Puzzle {
     pub fn new(game: GoGame) -> Puzzle {
         // debug_assert_eq!(game.plys(), 0);
 
-        let attacker = if !(game.out_of_bounds.expand_one()
+        let attacker = if !(game.get_board().out_of_bounds.expand_one()
             & game.get_board().get_bitboard_for_player(GoPlayer::White))
         .is_empty()
         {
@@ -180,7 +180,7 @@ impl Puzzle {
                 } else {
                     AndOrNode::create_false_leaf()
                 }
-            } else if self.is_defender_dead(child) {
+            } else if self.is_defender_dead(child.get_board()) {
                 if self.attacker == self.player {
                     AndOrNode::create_true_leaf()
                 } else {
@@ -199,13 +199,13 @@ impl Puzzle {
 
     /// A conservative estimate on whether the group is dead.
     /// true means it's definitely dead, false otherwise
-    fn is_defender_dead(&self, game: GoGame) -> bool {
-        let attacker_alive = game
+    fn is_defender_dead(&self, board: GoBoard) -> bool {
+        let attacker_alive = board
             .out_of_bounds
             .expand_one()
-            .flood_fill(game.get_board().get_bitboard_for_player(self.attacker));
+            .flood_fill(board.get_bitboard_for_player(self.attacker));
 
-        let maximum_living_shape = !attacker_alive & !game.out_of_bounds;
+        let maximum_living_shape = !attacker_alive & !board.out_of_bounds;
 
         maximum_living_shape.interior().count() < 2
     }

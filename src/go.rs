@@ -48,8 +48,9 @@ impl GoPlayer {
 
 #[derive(PartialEq, Clone, Copy)]
 pub struct GoBoard {
-    white: BitBoard,
-    black: BitBoard,
+    pub white: BitBoard,
+    pub black: BitBoard,
+    pub out_of_bounds: BitBoard,
 }
 
 impl Debug for GoBoard {
@@ -78,6 +79,7 @@ impl GoBoard {
         GoBoard {
             white: BitBoard::empty(),
             black: BitBoard::empty(),
+            out_of_bounds: BitBoard::empty(),
         }
     }
 
@@ -155,13 +157,20 @@ impl GoBoard {
             GoPlayer::Black => self.black = stones_with_liberties,
         }
     }
+
+    fn is_out_of_bounds(&self, position: BoardPosition) -> bool {
+        !(BitBoard::singleton(position) & self.out_of_bounds).is_empty()
+    }
+
+    fn set_out_of_bounds(&mut self, out_of_bounds: BitBoard) {
+        self.out_of_bounds = out_of_bounds;
+    }
 }
 
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub struct GoGame {
     ko_violations: BitBoard,
     board: GoBoard,
-    pub out_of_bounds: BitBoard,
     pub current_player: GoPlayer,
     pub last_move_pass: bool,
 }
@@ -181,17 +190,15 @@ impl GoGame {
             board: GoBoard::empty(),
             ko_violations: BitBoard::empty(),
             current_player: GoPlayer::Black,
-            out_of_bounds: BitBoard::empty(),
             last_move_pass: false,
         }
     }
 
-    pub fn from_board(board: GoBoard, out_of_bounds: BitBoard) -> GoGame {
+    pub fn from_board(board: GoBoard) -> GoGame {
         GoGame {
             board,
             ko_violations: BitBoard::empty(),
             current_player: GoPlayer::Black,
-            out_of_bounds,
             last_move_pass: false,
         }
     }
@@ -205,11 +212,7 @@ impl GoGame {
     }
 
     fn is_out_of_bounds(&self, position: BoardPosition) -> bool {
-        !(BitBoard::singleton(position) & self.out_of_bounds).is_empty()
-    }
-
-    pub fn empty_cells(&self) -> BitBoard {
-        self.get_board().empty_cells() & !self.out_of_bounds
+        self.get_board().is_out_of_bounds(position)
     }
 
     pub fn play_move_for_player(
@@ -276,7 +279,6 @@ impl GoGame {
             ko_violations,
             board: new_board,
             current_player: next_player,
-            out_of_bounds: self.out_of_bounds,
             last_move_pass: false,
         })
     }
@@ -286,7 +288,6 @@ impl GoGame {
             board: self.board,
             ko_violations: BitBoard::empty(),
             current_player: self.current_player.flip(),
-            out_of_bounds: self.out_of_bounds,
             last_move_pass: true,
         }
     }
@@ -294,7 +295,9 @@ impl GoGame {
     pub fn generate_moves(&self) -> Vec<(GoGame, Move)> {
         let mut games = Vec::new();
 
-        for position in self.empty_cells().positions() {
+        let board = self.get_board();
+
+        for position in (board.empty_cells() & !board.out_of_bounds).positions() {
             if let Ok(game) = self.play_placing_move(position) {
                 games.push((game, Move::Place(position)));
             }
@@ -343,12 +346,13 @@ impl GoGame {
             }
         }
 
-        let out_of_bounds = match triangle_location {
-            None => BitBoard::empty(),
-            Some(position) => BitBoard::singleton(position).flood_fill(board.empty_cells()),
+        if let Some(position) = triangle_location {
+            board.set_out_of_bounds(
+                BitBoard::singleton(position).flood_fill(board.empty_cells()),
+            );
         };
 
-        let mut game = GoGame::from_board(board, out_of_bounds);
+        let mut game = GoGame::from_board(board);
 
         for node in nodes {
             for token in node.tokens.iter() {

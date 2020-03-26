@@ -122,6 +122,10 @@ impl BitBoard {
         !(self & Self::singleton(position)).is_empty()
     }
 
+    pub fn set(self, position: BoardPosition) -> BitBoard {
+        self & Self::singleton(position)
+    }
+
     pub fn flood_fill(self, mask: BitBoard) -> BitBoard {
         let mut filled = self & mask;
 

@@ -54,6 +54,7 @@ impl GoBoard {
         GoBoard {
             white: self.unconditionally_alive_blocks_for_player(GoPlayer::White),
             black: self.unconditionally_alive_blocks_for_player(GoPlayer::Black),
+            out_of_bounds: self.out_of_bounds,
         }
     }
 }
