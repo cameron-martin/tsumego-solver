@@ -1,4 +1,3 @@
-use clap::{App, Arg};
 use cursive::view::Margins;
 use cursive::views::{Button, LinearLayout, PaddedView, TextView};
 use cursive::Cursive;
@@ -11,19 +10,7 @@ use std::rc::Rc;
 use tsumego_solver::go::GoGame;
 use tsumego_solver::puzzle::Puzzle;
 
-fn load_puzzle() -> Puzzle {
-    let matches = App::new("Tsumego Solver Debugger")
-        .arg(
-            Arg::with_name("file")
-                .short("f")
-                .long("file")
-                .required(true)
-                .takes_value(true),
-        )
-        .get_matches();
-
-    let filename = matches.value_of("file").unwrap();
-
+fn load_puzzle(filename: &str) -> Puzzle {
     let game = GoGame::from_sgf(&fs::read_to_string(Path::new(filename)).unwrap());
 
     Puzzle::new(game)
@@ -75,8 +62,8 @@ fn create_layer(puzzle: Rc<Puzzle>, node_id: NodeIndex) -> LinearLayout {
         .child(children)
 }
 
-fn main() {
-    let mut puzzle = load_puzzle();
+pub fn run(filename: &str) {
+    let mut puzzle = load_puzzle(filename);
 
     puzzle.solve();
 

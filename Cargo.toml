@@ -11,6 +11,7 @@ sgf-parser = "2.4.0"
 petgraph = "0.5.0"
 cursive = "0.14"
 clap = "2.33.0"
+rand = "0.7"
 
 [dev-dependencies]
 criterion = "0.3.1"
@@ -21,8 +22,8 @@ quickcheck_macros = "0.9"
 bench = false
 
 [[bin]]
-name = "debugger"
-path = "src/bin/debugger/main.rs"
+name = "cli"
+path = "src/bin/cli/main.rs"
 bench = false
 
 [[bench]]

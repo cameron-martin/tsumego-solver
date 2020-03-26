@@ -1,6 +1,6 @@
 mod proof_number;
 
-use crate::go::{GoGame, GoBoard, GoPlayer, Move};
+use crate::go::{GoBoard, GoGame, GoPlayer, Move};
 use petgraph::stable_graph::NodeIndex;
 use petgraph::stable_graph::StableGraph;
 use petgraph::visit::EdgeRef;
@@ -8,6 +8,8 @@ use petgraph::Direction;
 use proof_number::ProofNumber;
 use std::fmt;
 use std::fmt::{Debug, Formatter};
+use std::time::Duration;
+use std::time::Instant;
 
 #[derive(Clone, Copy)]
 pub enum NodeType {
@@ -260,8 +262,26 @@ impl Puzzle {
         }
     }
 
-    fn is_solved(&self) -> bool {
+    pub fn solve_with_timeout(&mut self, timeout: Duration) -> bool {
+        let timeout_at = Instant::now() + timeout;
+
+        while !self.is_solved() {
+            if Instant::now() > timeout_at {
+                return false;
+            }
+
+            self.solve_iteration();
+        }
+
+        true
+    }
+
+    pub fn is_solved(&self) -> bool {
         self.root_node().is_solved()
+    }
+
+    pub fn is_proved(&self) -> bool {
+        self.root_node().is_proved()
     }
 
     fn solve_iteration(&mut self) {

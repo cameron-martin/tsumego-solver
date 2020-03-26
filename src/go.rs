@@ -27,7 +27,7 @@ impl Display for Move {
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum BoardCell {
     Empty,
-    // OutOfBounds,
+    OutOfBounds,
     Occupied(GoPlayer),
 }
 
@@ -44,16 +44,30 @@ impl GoPlayer {
             GoPlayer::White => GoPlayer::Black,
         }
     }
+
+    pub fn all() -> impl Iterator<Item = &'static GoPlayer> {
+        [GoPlayer::Black, GoPlayer::White].iter()
+    }
 }
 
-#[derive(PartialEq, Clone, Copy)]
+impl Display for GoPlayer {
+    fn fmt(&self, f: &mut Formatter) -> Result<(), fmt::Error> {
+        match self {
+            GoPlayer::Black => f.write_str("black"),
+            GoPlayer::White => f.write_str("white"),
+        }
+    }
+}
+
+// Being set in both black and white denotes "out of bounds"
+#[derive(PartialEq, Clone, Copy, Debug)]
 pub struct GoBoard {
     pub white: BitBoard,
     pub black: BitBoard,
     pub out_of_bounds: BitBoard,
 }
 
-impl Debug for GoBoard {
+impl Display for GoBoard {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         for j in 0..BitBoard::height() {
             for i in 0..BitBoard::width() {
@@ -63,6 +77,7 @@ impl Debug for GoBoard {
 
                 f.write_char(match self.get_cell(BoardPosition::new(i, j)) {
                     BoardCell::Empty => '.',
+                    BoardCell::OutOfBounds => '_',
                     BoardCell::Occupied(GoPlayer::White) => 'w',
                     BoardCell::Occupied(GoPlayer::Black) => 'b',
                 })?;
@@ -92,20 +107,34 @@ impl GoBoard {
 
         match cell {
             BoardCell::Empty => {
-                self.white = self.white & !mask;
                 self.black = self.black & !mask;
+                self.white = self.white & !mask;
+                self.out_of_bounds = self.out_of_bounds & !mask;
             }
             BoardCell::Occupied(GoPlayer::Black) => {
                 self.black = self.black | mask;
+                self.white = self.white & !mask;
+                self.out_of_bounds = self.out_of_bounds & !mask;
             }
             BoardCell::Occupied(GoPlayer::White) => {
+                self.black = self.black & !mask;
                 self.white = self.white | mask;
+                self.out_of_bounds = self.out_of_bounds & !mask;
+            }
+            BoardCell::OutOfBounds => {
+                self.black = self.black & !mask;
+                self.white = self.white & !mask;
+                self.out_of_bounds = self.out_of_bounds | mask;
             }
         }
     }
 
     fn get_cell(&self, position: BoardPosition) -> BoardCell {
         let mask = BitBoard::singleton(position);
+
+        if !((mask & self.out_of_bounds).is_empty()) {
+            return BoardCell::OutOfBounds;
+        }
 
         if !((mask & self.white).is_empty()) {
             return BoardCell::Occupied(GoPlayer::White);
@@ -194,11 +223,11 @@ impl GoGame {
         }
     }
 
-    pub fn from_board(board: GoBoard) -> GoGame {
+    pub fn from_board(board: GoBoard, current_player: GoPlayer) -> GoGame {
         GoGame {
             board,
             ko_violations: BitBoard::empty(),
-            current_player: GoPlayer::Black,
+            current_player,
             last_move_pass: false,
         }
     }
@@ -297,7 +326,7 @@ impl GoGame {
 
         let board = self.get_board();
 
-        for position in (board.empty_cells() & !board.out_of_bounds).positions() {
+        for position in (!(board.white | board.black)).positions() {
             if let Ok(game) = self.play_placing_move(position) {
                 games.push((game, Move::Place(position)));
             }
@@ -308,6 +337,12 @@ impl GoGame {
 
     // pub fn plys(&self) -> usize {
     //     self.boards.len() - 1
+    // }
+
+    // pub fn switch_colours(&self) -> GoGame {
+    //     GoGame {
+    //         board: self.board.switch_colours(),
+    //     }
     // }
 }
 
@@ -347,12 +382,10 @@ impl GoGame {
         }
 
         if let Some(position) = triangle_location {
-            board.set_out_of_bounds(
-                BitBoard::singleton(position).flood_fill(board.empty_cells()),
-            );
+            board.set_out_of_bounds(BitBoard::singleton(position).flood_fill(board.empty_cells()));
         };
 
-        let mut game = GoGame::from_board(board);
+        let mut game = GoGame::from_board(board, GoPlayer::Black);
 
         for node in nodes {
             for token in node.tokens.iter() {
@@ -458,7 +491,7 @@ mod tests {
         let game = game.play_placing_move(BoardPosition::new(11, 6)).unwrap();
 
         assert_eq!(
-            format!("{:?}", game.get_board()),
+            format!("{}", game.get_board()),
             ". . . . . . . . . . . . . . . .\n\
              . b . b . b b w w . w . . . . .\n\
              . . . . . . . b w w . w . w . .\n\

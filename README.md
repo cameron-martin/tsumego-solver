@@ -2,6 +2,12 @@
 
 A program for solving and generating tsumego puzzles, based on the paper [_Search versus Knowledge for Solving Life and Death Problems in Go_](https://www.aaai.org/Papers/AAAI/2005/AAAI05-218.pdf).
 
+## Generating puzzles
+
+```sh
+cargo run --release generate
+```
+
 ## Development
 
 ### Running benchmarks

@@ -1,6 +1,6 @@
 use std::fmt;
 use std::fmt::{Debug, Display, Formatter};
-use std::ops::{BitAnd, BitOr, Not};
+use std::ops::{BitAnd, BitOr, BitXor, Not};
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub struct BoardPosition(u8);
@@ -58,6 +58,14 @@ impl Not for BitBoard {
 
     fn not(self) -> BitBoard {
         BitBoard(!self.0)
+    }
+}
+
+impl BitXor for BitBoard {
+    type Output = BitBoard;
+
+    fn bitxor(self, rhs: BitBoard) -> BitBoard {
+        BitBoard(self.0 ^ rhs.0)
     }
 }
 
@@ -123,7 +131,7 @@ impl BitBoard {
     }
 
     pub fn set(self, position: BoardPosition) -> BitBoard {
-        self & Self::singleton(position)
+        self | Self::singleton(position)
     }
 
     pub fn flood_fill(self, mask: BitBoard) -> BitBoard {
@@ -626,6 +634,21 @@ mod test {
              0000000000000000\n\
              0000000000000000\n\
              0000100000000000\n\
+             0000000000000000\n"
+        );
+    }
+
+    #[test]
+    fn set() {
+        assert_eq!(
+            format!("{:?}", BitBoard::empty().set(BoardPosition::new(1, 1))),
+            "0000000000000000\n\
+             0100000000000000\n\
+             0000000000000000\n\
+             0000000000000000\n\
+             0000000000000000\n\
+             0000000000000000\n\
+             0000000000000000\n\
              0000000000000000\n"
         );
     }
