@@ -103,7 +103,7 @@ impl Puzzle {
     pub fn new(game: GoGame) -> Puzzle {
         // debug_assert_eq!(game.plys(), 0);
 
-        let attacker = if !(game.get_board().out_of_bounds.expand_one()
+        let attacker = if !(game.get_board().out_of_bounds().expand_one()
             & game.get_board().get_bitboard_for_player(GoPlayer::White))
         .is_empty()
         {
@@ -203,11 +203,11 @@ impl Puzzle {
     /// true means it's definitely dead, false otherwise
     fn is_defender_dead(&self, board: GoBoard) -> bool {
         let attacker_alive = board
-            .out_of_bounds
+            .out_of_bounds()
             .expand_one()
             .flood_fill(board.get_bitboard_for_player(self.attacker));
 
-        let maximum_living_shape = !attacker_alive & !board.out_of_bounds;
+        let maximum_living_shape = !attacker_alive & !board.out_of_bounds();
 
         maximum_living_shape.interior().count() < 2
     }

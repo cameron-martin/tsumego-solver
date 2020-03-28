@@ -25,11 +25,11 @@ pub fn generate_candidate() -> GoBoard {
         GoPlayer::Black => black = black | surround,
     };
 
-    GoBoard {
+    GoBoard::new(
         black,
         white,
         out_of_bounds,
-    }
+    )
 }
 
 fn generate_enclosure(width: u8, height: u8) -> BitBoard {

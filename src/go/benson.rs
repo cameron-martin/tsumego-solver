@@ -51,11 +51,11 @@ impl GoBoard {
     }
 
     pub fn unconditionally_alive_blocks(&self) -> GoBoard {
-        GoBoard {
-            white: self.unconditionally_alive_blocks_for_player(GoPlayer::White),
-            black: self.unconditionally_alive_blocks_for_player(GoPlayer::Black),
-            out_of_bounds: self.out_of_bounds,
-        }
+        GoBoard::new(
+            self.unconditionally_alive_blocks_for_player(GoPlayer::Black),
+            self.unconditionally_alive_blocks_for_player(GoPlayer::White),
+            self.out_of_bounds(),
+        )
     }
 }
 

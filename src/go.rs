@@ -62,9 +62,8 @@ impl Display for GoPlayer {
 // Being set in both black and white denotes "out of bounds"
 #[derive(PartialEq, Clone, Copy, Debug)]
 pub struct GoBoard {
-    pub white: BitBoard,
-    pub black: BitBoard,
-    pub out_of_bounds: BitBoard,
+    white: BitBoard,
+    black: BitBoard,
 }
 
 impl Display for GoBoard {
@@ -94,12 +93,23 @@ impl GoBoard {
         GoBoard {
             white: BitBoard::empty(),
             black: BitBoard::empty(),
-            out_of_bounds: BitBoard::empty(),
         }
     }
 
+    pub fn new(black: BitBoard, white: BitBoard, out_of_bounds: BitBoard) -> GoBoard {
+        GoBoard {
+            white: white | out_of_bounds,
+            black: black | out_of_bounds,
+        }
+    }
+
+    /// Empty cells, including out of bounds
     fn empty_cells(&self) -> BitBoard {
-        !(self.white | self.black)
+        !(self.white ^ self.black)
+    }
+
+    pub fn out_of_bounds(&self) -> BitBoard {
+        self.white & self.black
     }
 
     fn set_cell(&mut self, position: BoardPosition, cell: BoardCell) {
@@ -109,22 +119,18 @@ impl GoBoard {
             BoardCell::Empty => {
                 self.black = self.black & !mask;
                 self.white = self.white & !mask;
-                self.out_of_bounds = self.out_of_bounds & !mask;
             }
             BoardCell::Occupied(GoPlayer::Black) => {
                 self.black = self.black | mask;
                 self.white = self.white & !mask;
-                self.out_of_bounds = self.out_of_bounds & !mask;
             }
             BoardCell::Occupied(GoPlayer::White) => {
                 self.black = self.black & !mask;
                 self.white = self.white | mask;
-                self.out_of_bounds = self.out_of_bounds & !mask;
             }
             BoardCell::OutOfBounds => {
-                self.black = self.black & !mask;
-                self.white = self.white & !mask;
-                self.out_of_bounds = self.out_of_bounds | mask;
+                self.black = self.black | mask;
+                self.white = self.white | mask;
             }
         }
     }
@@ -132,7 +138,7 @@ impl GoBoard {
     fn get_cell(&self, position: BoardPosition) -> BoardCell {
         let mask = BitBoard::singleton(position);
 
-        if !((mask & self.out_of_bounds).is_empty()) {
+        if !((mask & self.out_of_bounds()).is_empty()) {
             return BoardCell::OutOfBounds;
         }
 
@@ -149,20 +155,29 @@ impl GoBoard {
 
     pub fn get_bitboard_for_player(&self, player: GoPlayer) -> BitBoard {
         match player {
-            GoPlayer::Black => self.black,
-            GoPlayer::White => self.white,
+            GoPlayer::Black => (self.black & !self.white),
+            GoPlayer::White => (self.white & !self.black),
+        }
+    }
+
+    fn set_bitboard_for_player(&mut self, player: GoPlayer, board: BitBoard) {
+        match player {
+            GoPlayer::Black => self.black = board | self.out_of_bounds(),
+            GoPlayer::White => self.white = board | self.out_of_bounds(),
         }
     }
 
     fn get_bitboard_at_position(&self, position: BoardPosition) -> BitBoard {
         let mask = BitBoard::singleton(position);
+        let white = self.get_bitboard_for_player(GoPlayer::White);
+        let black = self.get_bitboard_for_player(GoPlayer::Black);
 
-        if !((mask & self.white).is_empty()) {
-            return self.white;
+        if !((mask & white).is_empty()) {
+            return white;
         }
 
-        if !((mask & self.black).is_empty()) {
-            return self.black;
+        if !((mask & black).is_empty()) {
+            return black;
         }
 
         panic!("No board at this position")
@@ -181,18 +196,17 @@ impl GoBoard {
         let stones_with_liberties =
             (self.empty_cells().expand_one() & opponents_bitboard).flood_fill(opponents_bitboard);
 
-        match player {
-            GoPlayer::White => self.white = stones_with_liberties,
-            GoPlayer::Black => self.black = stones_with_liberties,
-        }
+        self.set_bitboard_for_player(player, stones_with_liberties);
     }
 
     fn is_out_of_bounds(&self, position: BoardPosition) -> bool {
-        !(BitBoard::singleton(position) & self.out_of_bounds).is_empty()
+        !(BitBoard::singleton(position) & self.out_of_bounds()).is_empty()
     }
 
     fn set_out_of_bounds(&mut self, out_of_bounds: BitBoard) {
-        self.out_of_bounds = out_of_bounds;
+        let prev_out_of_bounds = self.out_of_bounds();
+        self.white = (self.white & !prev_out_of_bounds) | out_of_bounds;
+        self.black = (self.black & !prev_out_of_bounds) | out_of_bounds;
     }
 }
 
@@ -334,16 +348,6 @@ impl GoGame {
 
         games
     }
-
-    // pub fn plys(&self) -> usize {
-    //     self.boards.len() - 1
-    // }
-
-    // pub fn switch_colours(&self) -> GoGame {
-    //     GoGame {
-    //         board: self.board.switch_colours(),
-    //     }
-    // }
 }
 
 impl GoGame {
