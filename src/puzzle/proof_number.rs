@@ -19,12 +19,7 @@ impl ProofNumber {
 
 impl PartialOrd for ProofNumber {
     fn partial_cmp(&self, other: &ProofNumber) -> Option<Ordering> {
-        match (self.0, other.0) {
-            (0, 0) => Some(Ordering::Equal),
-            (0, _) => Some(Ordering::Greater),
-            (_, 0) => Some(Ordering::Less),
-            (n, m) => n.partial_cmp(&m),
-        }
+        Some(self.cmp(other))
     }
 }
 
