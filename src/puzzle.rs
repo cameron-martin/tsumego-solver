@@ -94,7 +94,7 @@ pub struct Puzzle {
     attacker: GoPlayer,
     pub tree: StableGraph<AndOrNode, Move>,
     pub root_id: NodeIndex,
-    current_node_id: NodeIndex,
+    pub current_node_id: NodeIndex,
     game_stack: Vec<GoGame>,
     current_type: NodeType,
 }
@@ -137,7 +137,7 @@ impl Puzzle {
         self.attacker.flip()
     }
 
-    fn current_game(&self) -> GoGame {
+    pub fn current_game(&self) -> GoGame {
         *self.game_stack.last().unwrap()
     }
 
@@ -246,13 +246,33 @@ impl Puzzle {
                 }
             };
 
-            self.current_node_id = chosen_edge.target();
+            let node_id = chosen_edge.target();
+            let go_move = *chosen_edge.weight();
+
+            self.move_down(node_id, go_move);
+        }
+    }
+
+    pub fn move_down(&mut self, node_id: NodeIndex, go_move: Move) {
+        self.current_node_id = node_id;
+        self.current_type = self.current_type.flip();
+        self.game_stack
+            .push(self.current_game().play_move(go_move).unwrap());
+    }
+
+    pub fn move_up(&mut self) -> bool {
+        if let Some(parent_node_id) = self
+            .tree
+            .neighbors_directed(self.current_node_id, Direction::Incoming)
+            .next()
+        {
+            self.current_node_id = parent_node_id;
             self.current_type = self.current_type.flip();
-            self.game_stack.push(
-                self.current_game()
-                    .play_move(*chosen_edge.weight())
-                    .unwrap(),
-            );
+            self.game_stack.pop();
+
+            true
+        } else {
+            false
         }
     }
 
@@ -300,15 +320,7 @@ impl Puzzle {
 
             self.prune_if_solved();
 
-            if let Some(parent_node_id) = self
-                .tree
-                .neighbors_directed(self.current_node_id, Direction::Incoming)
-                .next()
-            {
-                self.current_node_id = parent_node_id;
-                self.current_type = self.current_type.flip();
-                self.game_stack.pop();
-            } else {
+            if !self.move_up() {
                 break;
             }
         }

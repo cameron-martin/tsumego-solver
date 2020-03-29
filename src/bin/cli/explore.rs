@@ -1,9 +1,8 @@
 use cursive::view::Margins;
 use cursive::views::{Button, LinearLayout, PaddedView, TextView};
 use cursive::Cursive;
-use petgraph::graph::NodeIndex;
 use petgraph::visit::EdgeRef;
-use petgraph::Direction;
+use std::cell::RefCell;
 use std::fs;
 use std::path::Path;
 use std::rc::Rc;
@@ -16,21 +15,18 @@ fn load_puzzle(filename: &str) -> Puzzle {
     Puzzle::new(game)
 }
 
-fn create_layer(puzzle: Rc<Puzzle>, node_id: NodeIndex) -> LinearLayout {
-    let edges = puzzle.tree.edges(node_id);
-    let parent_id = puzzle
-        .tree
-        .neighbors_directed(node_id, Direction::Incoming)
-        .next();
+fn create_layer(puzzle_cell: Rc<RefCell<Puzzle>>) -> LinearLayout {
+    let puzzle = puzzle_cell.borrow();
+    let edges = puzzle.tree.edges(puzzle.current_node_id);
 
     let up_view = PaddedView::new(
         Margins::lrtb(0, 0, 0, 2),
         Button::new("Up", {
-            let puzzle = puzzle.clone();
+            let puzzle_cell = puzzle_cell.clone();
             move |s| {
-                if let Some(parent_id) = parent_id {
+                if puzzle_cell.borrow_mut().move_up() {
                     s.pop_layer();
-                    s.add_layer(create_layer(puzzle.clone(), parent_id));
+                    s.add_layer(create_layer(puzzle_cell.clone()));
                 }
             }
         }),
@@ -40,12 +36,14 @@ fn create_layer(puzzle: Rc<Puzzle>, node_id: NodeIndex) -> LinearLayout {
 
     for edge in edges {
         let target_id = edge.target();
+        let go_move = *edge.weight();
 
         let button = Button::new(format!("{}", edge.weight()), {
-            let puzzle = puzzle.clone();
+            let puzzle_cell = puzzle_cell.clone();
             move |s| {
+                puzzle_cell.borrow_mut().move_down(target_id, go_move);
                 s.pop_layer();
-                s.add_layer(create_layer(puzzle.clone(), target_id));
+                s.add_layer(create_layer(puzzle_cell.clone()));
             }
         });
         children.add_child(PaddedView::lrtb(0, 2, 0, 0, button));
@@ -53,7 +51,11 @@ fn create_layer(puzzle: Rc<Puzzle>, node_id: NodeIndex) -> LinearLayout {
 
     let node_display = PaddedView::new(
         Margins::lrtb(0, 0, 0, 2),
-        TextView::new(format!("{:?}", puzzle.tree[node_id])),
+        TextView::new(format!(
+            "{:?}\n\n{}",
+            puzzle.tree[puzzle.current_node_id],
+            puzzle.current_game().get_board()
+        )),
     );
 
     LinearLayout::vertical()
@@ -69,9 +71,7 @@ pub fn run(filename: &str) {
 
     let mut siv = Cursive::default();
 
-    let root_id = puzzle.root_id;
-
-    siv.add_layer(create_layer(Rc::new(puzzle), root_id));
+    siv.add_layer(create_layer(Rc::new(RefCell::new(puzzle))));
 
     siv.run();
 }
