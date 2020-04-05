@@ -3,6 +3,10 @@ use crate::puzzle::Puzzle;
 use std::time::Duration;
 
 pub fn validate_candidate(candidate: GoBoard, timeout: Duration) -> bool {
+    if candidate.has_dead_groups() {
+        return false;
+    }
+
     GoPlayer::all().all(|first_player| {
         let mut puzzle = Puzzle::new(GoGame::from_board(candidate, *first_player));
 

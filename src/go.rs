@@ -192,12 +192,24 @@ impl GoBoard {
         !(group.expand_one() & self.empty_cells()).is_empty()
     }
 
+    fn get_alive_groups_for_player(&self, player: GoPlayer) -> BitBoard {
+        let bitboard = self.get_bitboard_for_player(player);
+
+        (self.empty_cells().expand_one() & bitboard).flood_fill(bitboard)
+    }
+
     fn remove_dead_groups_for_player(&mut self, player: GoPlayer) {
-        let opponents_bitboard = self.get_bitboard_for_player(player);
-        let stones_with_liberties =
-            (self.empty_cells().expand_one() & opponents_bitboard).flood_fill(opponents_bitboard);
+        let stones_with_liberties = self.get_alive_groups_for_player(player);
 
         self.set_bitboard_for_player(player, stones_with_liberties);
+    }
+
+    pub fn has_dead_groups(&self) -> bool {
+        GoPlayer::all().any(|&player| {
+            let alive_groups = self.get_alive_groups_for_player(player);
+
+            self.get_bitboard_for_player(player) != alive_groups
+        })
     }
 
     fn is_out_of_bounds(&self, position: BoardPosition) -> bool {
@@ -512,5 +524,58 @@ mod tests {
         let new_game = game.pass();
 
         assert_ne!(game.current_player, new_game.current_player);
+    }
+
+    #[test]
+    fn has_dead_groups_black() {
+        let mut game = GoBoard::empty();
+        game.set_cell(
+            BoardPosition::new(0, 0),
+            BoardCell::Occupied(GoPlayer::Black),
+        );
+        game.set_cell(
+            BoardPosition::new(0, 1),
+            BoardCell::Occupied(GoPlayer::White),
+        );
+        game.set_cell(
+            BoardPosition::new(1, 0),
+            BoardCell::Occupied(GoPlayer::White),
+        );
+
+        assert!(game.has_dead_groups());
+    }
+
+    #[test]
+    fn has_dead_groups_white() {
+        let mut game = GoBoard::empty();
+        game.set_cell(
+            BoardPosition::new(0, 0),
+            BoardCell::Occupied(GoPlayer::White),
+        );
+        game.set_cell(
+            BoardPosition::new(0, 1),
+            BoardCell::Occupied(GoPlayer::Black),
+        );
+        game.set_cell(
+            BoardPosition::new(1, 0),
+            BoardCell::Occupied(GoPlayer::Black),
+        );
+
+        assert!(game.has_dead_groups());
+    }
+
+    #[test]
+    fn has_dead_groups_false() {
+        let mut game = GoBoard::empty();
+        game.set_cell(
+            BoardPosition::new(0, 1),
+            BoardCell::Occupied(GoPlayer::White),
+        );
+        game.set_cell(
+            BoardPosition::new(1, 0),
+            BoardCell::Occupied(GoPlayer::White),
+        );
+
+        assert!(!game.has_dead_groups());
     }
 }
