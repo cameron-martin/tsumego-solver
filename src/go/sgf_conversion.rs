@@ -82,7 +82,7 @@ impl GoGame {
 
 impl GoBoard {
     pub fn to_sgf(&self) -> String {
-        let mut tokens: Vec<_> = GoPlayer::all()
+        let mut tokens: Vec<_> = GoPlayer::both()
             .flat_map(|&go_player| {
                 let board = self.get_bitboard_for_player(go_player);
 

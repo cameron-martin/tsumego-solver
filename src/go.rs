@@ -46,7 +46,7 @@ impl GoPlayer {
         }
     }
 
-    pub fn all() -> impl Iterator<Item = &'static GoPlayer> {
+    pub fn both() -> impl Iterator<Item = &'static GoPlayer> {
         [GoPlayer::Black, GoPlayer::White].iter()
     }
 }
@@ -205,7 +205,7 @@ impl GoBoard {
     }
 
     pub fn has_dead_groups(&self) -> bool {
-        GoPlayer::all().any(|&player| {
+        GoPlayer::both().any(|&player| {
             let alive_groups = self.get_alive_groups_for_player(player);
 
             self.get_bitboard_for_player(player) != alive_groups
