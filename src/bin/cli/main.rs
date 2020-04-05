@@ -17,14 +17,22 @@ fn main() -> io::Result<()> {
             ),
         )
         .subcommand(
-            SubCommand::with_name("generate").arg(
-                Arg::with_name("out")
-                    .short("o")
-                    .long("out")
-                    .required(true)
-                    .default_value("generated_puzzles")
-                    .takes_value(true),
-            ),
+            SubCommand::with_name("generate")
+                .arg(
+                    Arg::with_name("out")
+                        .short("o")
+                        .long("out")
+                        .required(true)
+                        .default_value("generated_puzzles")
+                        .takes_value(true),
+                )
+                .arg(
+                    Arg::with_name("threads")
+                        .long("threads")
+                        .required(true)
+                        .default_value("8")
+                        .takes_value(true),
+                ),
         )
         .setting(AppSettings::ArgRequiredElseHelp)
         .get_matches();
@@ -39,8 +47,12 @@ fn main() -> io::Result<()> {
         }
         ("generate", Some(matches)) => {
             let output_directory = matches.value_of("out").unwrap();
+            let thread_count = matches.value_of("threads").unwrap();
 
-            generate::run(Path::new(output_directory))
+            generate::run(
+                Path::new(output_directory),
+                str::parse(thread_count).unwrap(),
+            )
         }
         _ => Ok(()),
     }
