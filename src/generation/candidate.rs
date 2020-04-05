@@ -1,9 +1,7 @@
 use crate::go::{BitBoard, BoardPosition, GoBoard, GoPlayer};
 use rand::prelude::*;
 
-pub fn generate_candidate() -> GoBoard {
-    let mut rng = thread_rng();
-
+pub fn generate_candidate<G: RngCore>(rng: &mut G) -> GoBoard {
     let width: u8 = rng.gen_range(2, BitBoard::width() - 1);
     let height: u8 = rng.gen_range(2, BitBoard::height() - 1);
 
@@ -12,7 +10,7 @@ pub fn generate_candidate() -> GoBoard {
     let surround = enclosure.immediate_exterior();
     let out_of_bounds = !(enclosure | surround);
 
-    let (mut black, mut white) = generate_interior_stones(width, height);
+    let (mut black, mut white) = generate_interior_stones(width, height, rng);
 
     let attacker = if random() {
         GoPlayer::White
@@ -40,17 +38,21 @@ fn generate_enclosure(width: u8, height: u8) -> BitBoard {
     board
 }
 
-fn generate_interior_stones(width: u8, height: u8) -> (BitBoard, BitBoard) {
+fn generate_interior_stones<G: RngCore>(
+    width: u8,
+    height: u8,
+    rng: &mut G,
+) -> (BitBoard, BitBoard) {
     let mut black = BitBoard::empty();
     let mut white = BitBoard::empty();
 
     for i in 0..width {
         for j in 0..height {
-            let is_filled: bool = random();
+            let is_filled: bool = rng.gen();
 
             if is_filled {
                 let position = BoardPosition::new(i, j);
-                if random() {
+                if rng.gen() {
                     white = white.set(position);
                 } else {
                     black = black.set(position);

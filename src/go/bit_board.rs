@@ -9,13 +9,19 @@ impl BoardPosition {
     pub fn new(column: u8, row: u8) -> BoardPosition {
         BoardPosition(column + BitBoard::width() * row)
     }
+
+    pub fn to_pair(self) -> (u8, u8) {
+        let y = self.0 / BitBoard::width();
+
+        let x = self.0 - (BitBoard::width() * y);
+
+        (x, y)
+    }
 }
 
 impl Display for BoardPosition {
     fn fmt(&self, f: &mut Formatter) -> Result<(), fmt::Error> {
-        let y = self.0 / BitBoard::width();
-
-        let x = self.0 - (BitBoard::width() * y);
+        let (x, y) = self.to_pair();
 
         f.write_fmt(format_args!("({}, {})", x, y))
     }

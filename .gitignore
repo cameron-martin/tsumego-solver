@@ -1,2 +1,3 @@
 /target
 **/*.rs.bk
+/generated_puzzles

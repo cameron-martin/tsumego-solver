@@ -2,8 +2,10 @@ mod explore;
 mod generate;
 
 use clap::{App, AppSettings, Arg, SubCommand};
+use std::io;
+use std::path::Path;
 
-fn main() {
+fn main() -> io::Result<()> {
     let matches = App::new("Tsumego Solver")
         .subcommand(
             SubCommand::with_name("explore").arg(
@@ -15,13 +17,14 @@ fn main() {
             ),
         )
         .subcommand(
-            SubCommand::with_name("generate"), /*.arg(
-                                                   Arg::with_name("out")
-                                                       .short("o")
-                                                       .long("out")
-                                                       .required(true)
-                                                       .takes_value(true),
-                                               )*/
+            SubCommand::with_name("generate").arg(
+                Arg::with_name("out")
+                    .short("o")
+                    .long("out")
+                    .required(true)
+                    .default_value("generated_puzzles")
+                    .takes_value(true),
+            ),
         )
         .setting(AppSettings::ArgRequiredElseHelp)
         .get_matches();
@@ -31,10 +34,14 @@ fn main() {
             let filename = matches.value_of("file").unwrap();
 
             explore::run(filename);
+
+            Ok(())
         }
-        ("generate", _) => {
-            generate::run();
+        ("generate", Some(matches)) => {
+            let output_directory = matches.value_of("out").unwrap();
+
+            generate::run(Path::new(output_directory))
         }
-        _ => {}
+        _ => Ok(()),
     }
 }
