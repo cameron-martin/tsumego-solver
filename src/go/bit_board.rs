@@ -29,7 +29,7 @@ impl Display for BoardPosition {
 
 /// A bitboard with 16 columns and 8 rows,
 /// flowing left to right, then wrapping top to bottom.
-#[derive(Copy, Clone, PartialEq)]
+#[derive(Copy, Clone, PartialEq, Hash)]
 pub struct BitBoard(u128);
 
 impl Debug for BitBoard {

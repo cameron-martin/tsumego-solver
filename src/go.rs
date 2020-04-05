@@ -2,11 +2,12 @@ mod benson;
 mod bit_board;
 mod sgf_conversion;
 pub use bit_board::{BitBoard, BoardPosition};
-use std::fmt::{Display, Write};
-
+use std::collections::hash_map::DefaultHasher;
 use std::fmt;
 use std::fmt::Debug;
 use std::fmt::Formatter;
+use std::fmt::{Display, Write};
+use std::hash::{Hash, Hasher};
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Move {
@@ -61,7 +62,7 @@ impl Display for GoPlayer {
 }
 
 // Being set in both black and white denotes "out of bounds"
-#[derive(PartialEq, Clone, Copy, Debug)]
+#[derive(PartialEq, Clone, Copy, Debug, Hash)]
 pub struct GoBoard {
     white: BitBoard,
     black: BitBoard,
@@ -220,6 +221,13 @@ impl GoBoard {
         let prev_out_of_bounds = self.out_of_bounds();
         self.white = (self.white & !prev_out_of_bounds) | out_of_bounds;
         self.black = (self.black & !prev_out_of_bounds) | out_of_bounds;
+    }
+
+    pub fn stable_hash(&self) -> u64 {
+        let mut hasher = DefaultHasher::new();
+        self.hash(&mut hasher);
+
+        hasher.finish()
     }
 }
 
@@ -577,5 +585,10 @@ mod tests {
         );
 
         assert!(!game.has_dead_groups());
+    }
+
+    #[test]
+    fn hashing_is_stable() {
+        assert_eq!(GoBoard::empty().stable_hash(), 13284472273662876477);
     }
 }

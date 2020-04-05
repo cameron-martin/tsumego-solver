@@ -6,7 +6,6 @@ use std::thread;
 use std::time::Duration;
 use tsumego_solver::generation::generate_puzzle;
 use tsumego_solver::go::GoBoard;
-use uuid::Uuid;
 
 pub fn run(output_directory: &Path, thread_count: u8) -> io::Result<()> {
     fs::create_dir_all(output_directory)?;
@@ -23,9 +22,14 @@ pub fn run(output_directory: &Path, thread_count: u8) -> io::Result<()> {
 
     loop {
         let puzzle = rx.recv().unwrap();
-        let file = output_directory.join(format!("{}.sgf", Uuid::new_v4()));
-        fs::write(file.as_path(), puzzle.to_sgf())?;
 
-        println!("Generated {}", file.display());
+        let file = output_directory.join(format!("{:016x}.sgf", puzzle.stable_hash()));
+        if file.exists() {
+            println!("Duplicate {}", file.display());
+        } else {
+            fs::write(file.as_path(), puzzle.to_sgf())?;
+
+            println!("Generated {}", file.display());
+        }
     }
 }
