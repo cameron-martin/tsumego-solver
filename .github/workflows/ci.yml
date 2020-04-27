@@ -3,26 +3,16 @@ on: [push]
 name: Continuous integration
 
 jobs:
-  test:
-    name: Test
+  lint:
+    name: Lint
     runs-on: ubuntu-18.04
     steps:
       - uses: actions/checkout@v2
-      - name: Install ncurses
-        run: sudo apt install libncurses-dev libncursesw5-dev
       - uses: actions-rs/toolchain@v1
         with:
           profile: minimal
           toolchain: stable
           override: true
-      - name: cargo check
-        uses: actions-rs/cargo@v1
-        with:
-          command: check
-      - name: cargo test
-        uses: actions-rs/cargo@v1
-        with:
-          command: test
       - run: rustup component add rustfmt
       - name: cargo fmt
         uses: actions-rs/cargo@v1
@@ -35,9 +25,8 @@ jobs:
         with:
           command: clippy
           args: -- -D warnings
-  compile:
-    name: Compile
-    needs: test
+  compile-and-test:
+    name: Compile and Test
     runs-on: ${{ matrix.target.runs-on }}
     strategy:
       matrix:
@@ -69,9 +58,14 @@ jobs:
         with:
           name: cli-${{ matrix.target.name }}
           path: target/${{ matrix.target.name }}/release/${{ matrix.target.output }}
+      - name: Test
+        uses: actions-rs/cargo@v1
+        with:
+          command: test
+          args: --release --target ${{ matrix.target.name }}
   release:
     name: Release
-    needs: compile
+    needs: [lint, compile-and-test]
     if: startsWith(github.ref, 'refs/tags/')
     runs-on: ubuntu-18.04
     steps:
