@@ -62,7 +62,6 @@ jobs:
         with:
           command: build
           args: --release --target ${{ matrix.target.name }}
-          use-cross: true
       - uses: actions/upload-artifact@v1
         with:
           name: cli-${{ matrix.target.name }}
