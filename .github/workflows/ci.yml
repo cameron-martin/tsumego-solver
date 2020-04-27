@@ -94,7 +94,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./cli-x86_64-unknown-linux-gnu
+          asset_path: ./cli-x86_64-unknown-linux-gnu/cli
           asset_name: cli-x86_64-unknown-linux-gnu
           asset_content_type: application/x-elf
       - name: Upload Release Asset (windows)
@@ -103,7 +103,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./cli-x86_64-pc-windows-msvc
+          asset_path: ./cli-x86_64-pc-windows-msvc/cli.exe
           asset_name: cli-x86_64-pc-windows-msvc.exe
           asset_content_type: application/vnd.microsoft.portable-executable
       - name: Upload Release Asset (osx)
@@ -112,6 +112,6 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./cli-x86_64-apple-darwin
+          asset_path: ./cli-x86_64-apple-darwin/cli
           asset_name: cli-x86_64-apple-darwin
           asset_content_type: application/x-mach-binary
