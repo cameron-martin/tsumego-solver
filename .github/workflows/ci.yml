@@ -48,11 +48,13 @@ jobs:
         with:
           profile: minimal
           toolchain: stable
+          target: ${{ matrix.target }}
           override: true
       - name: Compile for ${{ matrix.target }}
         uses: actions-rs/cargo@v1
         with:
-          command: build --release --target ${{ matrix.target }}
+          command: build
+          args: --release --target ${{ matrix.target }}
           use-cross: true
       - uses: actions/upload-artifact@v1
         with:
