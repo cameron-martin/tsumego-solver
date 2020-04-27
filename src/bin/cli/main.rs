@@ -1,4 +1,12 @@
+#[cfg(feature = "explore")]
 mod explore;
+#[cfg(not(feature = "explore"))]
+mod explore {
+    pub fn run(_filename: &str) {
+        panic!("The explore command has been disabled in this compilation!");
+    }
+}
+
 mod generate;
 
 use clap::{App, AppSettings, Arg, SubCommand};
