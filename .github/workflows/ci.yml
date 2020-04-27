@@ -3,45 +3,43 @@ on: [push]
 name: Continuous integration
 
 jobs:
-  test:
-    name: Test
+  lint:
+    name: Lint
     runs-on: ubuntu-18.04
     steps:
       - uses: actions/checkout@v2
-      - name: Install ncurses
-        run: sudo apt install libncurses-dev libncursesw5-dev
       - uses: actions-rs/toolchain@v1
         with:
           profile: minimal
           toolchain: stable
           override: true
-      - name: cargo check
-        uses: actions-rs/cargo@v1
-        with:
-          command: check
-      - name: cargo test
-        uses: actions-rs/cargo@v1
-        with:
-          command: test
       - run: rustup component add rustfmt
       - name: cargo fmt
         uses: actions-rs/cargo@v1
         with:
           command: fmt
           args: --all -- --check
-      - run: rustup component add clippy
-      - name: cargo clippy
-        uses: actions-rs/cargo@v1
-        with:
-          command: clippy
-          args: -- -D warnings
-  cross-compile:
-    name: Cross Compile
-    needs: test
-    runs-on: ubuntu-18.04
+      # - run: rustup component add clippy
+      # - name: cargo clippy
+      #   uses: actions-rs/cargo@v1
+      #   with:
+      #     command: clippy
+      #     args: -- -D warnings
+  compile-and-test:
+    name: Compile and Test
+    runs-on: ${{ matrix.target.runs-on }}
     strategy:
       matrix:
-        target: [x86_64-unknown-linux-gnu, x86_64-pc-windows-gnu, x86_64-apple-darwin]
+        target:
+          - name: x86_64-unknown-linux-gnu
+            runs-on: ubuntu-18.04
+            output: cli
+          - name: x86_64-pc-windows-msvc
+            runs-on: windows-2019
+            output: cli.exe
+          - name: x86_64-apple-darwin
+            runs-on: macos-10.15
+            output: cli
       fail-fast: false
     steps:
       - uses: actions/checkout@v2
@@ -49,15 +47,71 @@ jobs:
         with:
           profile: minimal
           toolchain: stable
-          target: ${{ matrix.target }}
+          target: ${{ matrix.target.name }}
           override: true
-      - name: Compile for ${{ matrix.target }}
+      - name: Compile
         uses: actions-rs/cargo@v1
         with:
           command: build
-          args: --release --target ${{ matrix.target }}
-          use-cross: true
+          args: --release --target ${{ matrix.target.name }}
       - uses: actions/upload-artifact@v1
         with:
-          name: cli-${{ matrix.target }}
-          path: target/${{ matrix.target }}/release/cli
+          name: cli-${{ matrix.target.name }}
+          path: target/${{ matrix.target.name }}/release/${{ matrix.target.output }}
+      - name: Test
+        uses: actions-rs/cargo@v1
+        with:
+          command: test
+          args: --target ${{ matrix.target.name }}
+  release:
+    name: Release
+    needs: [lint, compile-and-test]
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-18.04
+    steps:
+      - uses: actions/download-artifact@v1
+        with:
+          name: cli-x86_64-unknown-linux-gnu
+      - uses: actions/download-artifact@v1
+        with:
+          name: cli-x86_64-pc-windows-msvc
+      - uses: actions/download-artifact@v1
+        with:
+          name: cli-x86_64-apple-darwin
+      - name: Create Release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ github.ref }}
+          release_name: Release ${{ github.ref }}
+          draft: false
+          prerelease: false
+      - name: Upload Release Asset (linux)
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./cli-x86_64-unknown-linux-gnu
+          asset_name: cli-x86_64-unknown-linux-gnu
+          asset_content_type: application/x-elf
+      - name: Upload Release Asset (windows)
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./cli-x86_64-pc-windows-msvc
+          asset_name: cli-x86_64-pc-windows-msvc.exe
+          asset_content_type: application/vnd.microsoft.portable-executable
+      - name: Upload Release Asset (osx)
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./cli-x86_64-apple-darwin
+          asset_name: cli-x86_64-apple-darwin
+          asset_content_type: application/x-mach-binary
