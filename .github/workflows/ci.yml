@@ -8,6 +8,7 @@ jobs:
     runs-on: ubuntu-18.04
     steps:
       - uses: actions/checkout@v2
+      - run: apt install libncurses-dev
       - uses: actions-rs/toolchain@v1
         with:
           profile: minimal
