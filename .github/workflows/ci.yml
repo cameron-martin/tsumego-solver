@@ -38,10 +38,16 @@ jobs:
   cross-compile:
     name: Cross Compile
     needs: test
-    runs-on: ubuntu-18.04
+    runs-on: ${{ matrix.target.runs-on }}
     strategy:
       matrix:
-        target: [x86_64-unknown-linux-gnu, x86_64-pc-windows-gnu, x86_64-apple-darwin]
+        target:
+          - name: x86_64-unknown-linux-gnu
+            runs-on: ubuntu-18.04
+          - name: x86_64-pc-windows-msvc
+            runs-on: windows-2019
+          - name: x86_64-apple-darwin
+            runs-on: macos-10.15
       fail-fast: false
     steps:
       - uses: actions/checkout@v2
@@ -49,15 +55,15 @@ jobs:
         with:
           profile: minimal
           toolchain: stable
-          target: ${{ matrix.target }}
+          target: ${{ matrix.target.name }}
           override: true
-      - name: Compile for ${{ matrix.target }}
+      - name: Compile
         uses: actions-rs/cargo@v1
         with:
           command: build
-          args: --release --target ${{ matrix.target }}
+          args: --release --target ${{ matrix.target.name }}
           use-cross: true
       - uses: actions/upload-artifact@v1
         with:
-          name: cli-${{ matrix.target }}
-          path: target/${{ matrix.target }}/release/cli
+          name: cli-${{ matrix.target.name }}
+          path: target/${{ matrix.target.name }}/release
