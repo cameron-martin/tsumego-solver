@@ -19,12 +19,12 @@ jobs:
         with:
           command: fmt
           args: --all -- --check
-      - run: rustup component add clippy
-      - name: cargo clippy
-        uses: actions-rs/cargo@v1
-        with:
-          command: clippy
-          args: -- -D warnings
+      # - run: rustup component add clippy
+      # - name: cargo clippy
+      #   uses: actions-rs/cargo@v1
+      #   with:
+      #     command: clippy
+      #     args: -- -D warnings
   compile-and-test:
     name: Compile and Test
     runs-on: ${{ matrix.target.runs-on }}
@@ -62,7 +62,7 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: test
-          args: --release --target ${{ matrix.target.name }}
+          args: --target ${{ matrix.target.name }}
   release:
     name: Release
     needs: [lint, compile-and-test]
