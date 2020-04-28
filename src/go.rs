@@ -369,6 +369,21 @@ impl GoGame {
 
         games
     }
+
+    pub fn generate_moves_including_pass(&self) -> Vec<(GoGame, Move)> {
+        let mut games = self.generate_moves();
+
+        games.push((
+            self.pass(),
+            if self.last_move_pass {
+                Move::PassTwice
+            } else {
+                Move::PassOnce
+            },
+        ));
+
+        games
+    }
 }
 
 #[cfg(test)]

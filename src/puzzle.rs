@@ -150,36 +150,23 @@ impl<P: Profiler> Puzzle<P> {
 
         let game = self.current_game();
 
-        let mut moves = game.generate_moves();
+        let moves = game.generate_moves_including_pass();
 
-        let mut not_empty = false;
-
-        if !game.last_move_pass {
-            moves.push((game.pass(), Move::PassOnce));
-        } else {
-            let new_node_id = self.tree.add_node(if game.current_player == self.player {
-                AndOrNode::create_false_leaf()
-            } else {
-                AndOrNode::create_true_leaf()
-            });
-
-            self.tree
-                .add_edge(self.current_node_id, new_node_id, Move::PassTwice);
-
-            not_empty = true;
-            self.profiler.add_nodes(1);
-        }
-
-        debug_assert!(
-            !moves.is_empty() || not_empty,
-            "No moves found for node: {:?}",
-            game
-        );
+        debug_assert!(!moves.is_empty(), "No moves found for node: {:?}", game);
 
         self.profiler.add_nodes(moves.len() as u8);
 
         for (child, board_move) in moves {
-            let new_node = if !child
+            let new_node = if board_move == Move::PassTwice {
+                // If both players pass sequentially, the game ends and
+                // the player to pass second loses.
+                if game.current_player == self.player {
+                    AndOrNode::create_false_leaf()
+                } else {
+                    AndOrNode::create_true_leaf()
+                }
+            // If the defender has unconditionally alive blocks, the defender wins
+            } else if !child
                 .get_board()
                 .unconditionally_alive_blocks_for_player(self.defender())
                 .is_empty()
@@ -189,12 +176,14 @@ impl<P: Profiler> Puzzle<P> {
                 } else {
                     AndOrNode::create_false_leaf()
                 }
+            // If the defender doesn't have any space to create eyes, the attacker wins
             } else if self.is_defender_dead(child.get_board()) {
                 if self.attacker == self.player {
                     AndOrNode::create_true_leaf()
                 } else {
                     AndOrNode::create_false_leaf()
                 }
+            // Otherwise, the result is a non-terminal node
             } else {
                 AndOrNode::create_non_terminal_leaf()
             };
