@@ -23,13 +23,13 @@ The following command will generate puzzles and output them in sgf format to the
 ### Running benchmarks
 
 ```sh
-RUSTFLAGS="-C target-cpu=native" cargo bench
+cargo bench
 ```
 
 ### Generating asm
 
 ```sh
-RUSTFLAGS="-g --emit asm -C target-cpu=native -Z asm-comments" cargo build --release
+RUSTFLAGS="-g --emit asm -Z asm-comments" cargo build --release
 ```
 
 Note the [asm-comments flag](https://github.com/rust-lang/rust/pull/53290) only works with nightly rust.
