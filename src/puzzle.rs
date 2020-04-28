@@ -157,13 +157,25 @@ impl<P: Profiler> Puzzle<P> {
         self.profiler.add_nodes(moves.len() as u8);
 
         for (child, board_move) in moves {
+            // If both players pass sequentially, the game ends and the defender wins
+            // if they still have stones on the board. Specifically, the result is
+            // determined according to the following truth table:
+            // | player is attacker | defender has stones | player wins |
+            // | ------------------ | ------------------- | ----------- |
+            // | 1                  | 1                   | 0           |
+            // | 1                  | 0                   | 1           |
+            // | 0                  | 1                   | 1           |
+            // | 0                  | 0                   | 0           |
             let new_node = if board_move == Move::PassTwice {
-                // If both players pass sequentially, the game ends and
-                // the player to pass second loses.
-                if game.current_player == self.player {
-                    AndOrNode::create_false_leaf()
-                } else {
+                let defender_has_stones = !(child
+                    .get_board()
+                    .get_bitboard_for_player(self.defender())
+                    .is_empty());
+
+                if (self.player == self.attacker) ^ defender_has_stones {
                     AndOrNode::create_true_leaf()
+                } else {
+                    AndOrNode::create_false_leaf()
                 }
             // If the defender has unconditionally alive blocks, the defender wins
             } else if !child
@@ -418,7 +430,7 @@ mod tests {
 
         assert!(puzzle.root_node().is_proved());
         assert_eq!(puzzle.first_move(), Move::Place(BoardPosition::new(4, 0)));
-        assert_eq!(puzzle.profiler.node_count, 556);
+        assert_eq!(puzzle.profiler.node_count, 456);
         assert_eq!(puzzle.profiler.max_depth, 6);
     }
 
@@ -432,7 +444,7 @@ mod tests {
 
         assert!(puzzle.root_node().is_proved(), "{:?}", puzzle.root_node());
         assert_eq!(puzzle.first_move(), Move::Place(BoardPosition::new(2, 1)));
-        assert_eq!(puzzle.profiler.node_count, 9270);
+        assert_eq!(puzzle.profiler.node_count, 7936);
         assert_eq!(puzzle.profiler.max_depth, 12);
     }
 
@@ -446,8 +458,8 @@ mod tests {
 
         assert!(puzzle.root_node().is_proved(), "{:?}", puzzle.root_node());
         assert_eq!(puzzle.first_move(), Move::Place(BoardPosition::new(5, 0)));
-        assert_eq!(puzzle.profiler.node_count, 132);
-        assert_eq!(puzzle.profiler.max_depth, 8);
+        assert_eq!(puzzle.profiler.node_count, 572);
+        assert_eq!(puzzle.profiler.max_depth, 9);
     }
 
     #[test]
@@ -460,8 +472,8 @@ mod tests {
 
         assert!(puzzle.root_node().is_proved(), "{:?}", puzzle.root_node());
         assert_eq!(puzzle.first_move(), Move::Place(BoardPosition::new(7, 0)));
-        assert_eq!(puzzle.profiler.node_count, 42067);
-        assert_eq!(puzzle.profiler.max_depth, 11);
+        assert_eq!(puzzle.profiler.node_count, 50273);
+        assert_eq!(puzzle.profiler.max_depth, 18);
     }
 
     #[test]
@@ -474,7 +486,7 @@ mod tests {
 
         assert!(puzzle.root_node().is_proved(), "{:?}", puzzle.root_node());
         assert_eq!(puzzle.first_move(), Move::Place(BoardPosition::new(14, 2)));
-        assert_eq!(puzzle.profiler.node_count, 213407);
-        assert_eq!(puzzle.profiler.max_depth, 26);
+        assert_eq!(puzzle.profiler.node_count, 3061532);
+        assert_eq!(puzzle.profiler.max_depth, 30);
     }
 }
