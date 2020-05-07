@@ -1,3 +1,4 @@
+mod profiler;
 mod proof_number;
 
 use crate::go::{GoBoard, GoGame, GoPlayer, Move};
@@ -5,6 +6,7 @@ use petgraph::stable_graph::NodeIndex;
 use petgraph::stable_graph::StableGraph;
 use petgraph::visit::EdgeRef;
 use petgraph::Direction;
+pub use profiler::{NoProfile, Profile, Profiler};
 use proof_number::ProofNumber;
 use std::fmt;
 use std::fmt::{Debug, Formatter};
@@ -89,7 +91,7 @@ impl AndOrNode {
     }
 }
 
-pub struct Puzzle {
+pub struct Puzzle<P: Profiler> {
     player: GoPlayer,
     attacker: GoPlayer,
     pub tree: StableGraph<AndOrNode, Move>,
@@ -97,10 +99,11 @@ pub struct Puzzle {
     pub current_node_id: NodeIndex,
     game_stack: Vec<GoGame>,
     current_type: NodeType,
+    pub profiler: P,
 }
 
-impl Puzzle {
-    pub fn new(game: GoGame) -> Puzzle {
+impl<P: Profiler> Puzzle<P> {
+    pub fn new(game: GoGame) -> Puzzle<P> {
         // debug_assert_eq!(game.plys(), 0);
 
         let attacker = if !(game.get_board().out_of_bounds().expand_one()
@@ -126,10 +129,11 @@ impl Puzzle {
             current_node_id: root_id,
             game_stack: vec![game],
             current_type: NodeType::Or,
+            profiler: P::new(),
         }
     }
 
-    pub fn from_sgf(sgf_string: &str) -> Puzzle {
+    pub fn from_sgf(sgf_string: &str) -> Puzzle<P> {
         Self::new(GoGame::from_sgf(sgf_string))
     }
 
@@ -163,6 +167,7 @@ impl Puzzle {
                 .add_edge(self.current_node_id, new_node_id, Move::PassTwice);
 
             not_empty = true;
+            self.profiler.add_nodes(1);
         }
 
         debug_assert!(
@@ -170,6 +175,8 @@ impl Puzzle {
             "No moves found for node: {:?}",
             game
         );
+
+        self.profiler.add_nodes(moves.len() as u8);
 
         for (child, board_move) in moves {
             let new_node = if !child
@@ -258,6 +265,8 @@ impl Puzzle {
         self.current_type = self.current_type.flip();
         self.game_stack
             .push(self.current_game().play_move(go_move).unwrap());
+
+        self.profiler.move_down();
     }
 
     pub fn move_up(&mut self) -> bool {
@@ -269,6 +278,8 @@ impl Puzzle {
             self.current_node_id = parent_node_id;
             self.current_type = self.current_type.flip();
             self.game_stack.pop();
+
+            self.profiler.move_up();
 
             true
         } else {
@@ -412,59 +423,69 @@ mod tests {
     fn true_simple1() {
         let tsumego = GoGame::from_sgf(include_str!("test_sgfs/puzzles/true_simple1.sgf"));
 
-        let mut puzzle = Puzzle::new(tsumego);
+        let mut puzzle = Puzzle::<Profile>::new(tsumego);
 
         puzzle.solve();
 
         assert!(puzzle.root_node().is_proved());
         assert_eq!(puzzle.first_move(), Move::Place(BoardPosition::new(4, 0)));
+        assert_eq!(puzzle.profiler.node_count, 556);
+        assert_eq!(puzzle.profiler.max_depth, 6);
     }
 
     #[test]
     fn true_simple2() {
         let tsumego = GoGame::from_sgf(include_str!("test_sgfs/puzzles/true_simple2.sgf"));
 
-        let mut puzzle = Puzzle::new(tsumego);
+        let mut puzzle = Puzzle::<Profile>::new(tsumego);
 
         puzzle.solve();
 
         assert!(puzzle.root_node().is_proved(), "{:?}", puzzle.root_node());
         assert_eq!(puzzle.first_move(), Move::Place(BoardPosition::new(2, 1)));
+        assert_eq!(puzzle.profiler.node_count, 9270);
+        assert_eq!(puzzle.profiler.max_depth, 12);
     }
 
     #[test]
     fn true_simple3() {
         let tsumego = GoGame::from_sgf(include_str!("test_sgfs/puzzles/true_simple3.sgf"));
 
-        let mut puzzle = Puzzle::new(tsumego);
+        let mut puzzle = Puzzle::<Profile>::new(tsumego);
 
         puzzle.solve();
 
         assert!(puzzle.root_node().is_proved(), "{:?}", puzzle.root_node());
         assert_eq!(puzzle.first_move(), Move::Place(BoardPosition::new(5, 0)));
+        assert_eq!(puzzle.profiler.node_count, 132);
+        assert_eq!(puzzle.profiler.max_depth, 8);
     }
 
     #[test]
     fn true_simple4() {
         let tsumego = GoGame::from_sgf(include_str!("test_sgfs/puzzles/true_simple4.sgf"));
 
-        let mut puzzle = Puzzle::new(tsumego);
+        let mut puzzle = Puzzle::<Profile>::new(tsumego);
 
         puzzle.solve();
 
         assert!(puzzle.root_node().is_proved(), "{:?}", puzzle.root_node());
         assert_eq!(puzzle.first_move(), Move::Place(BoardPosition::new(7, 0)));
+        assert_eq!(puzzle.profiler.node_count, 42067);
+        assert_eq!(puzzle.profiler.max_depth, 11);
     }
 
     #[test]
     fn true_medium1() {
         let tsumego = GoGame::from_sgf(include_str!("test_sgfs/puzzles/true_medium1.sgf"));
 
-        let mut puzzle = Puzzle::new(tsumego);
+        let mut puzzle = Puzzle::<Profile>::new(tsumego);
 
         puzzle.solve();
 
         assert!(puzzle.root_node().is_proved(), "{:?}", puzzle.root_node());
         assert_eq!(puzzle.first_move(), Move::Place(BoardPosition::new(14, 2)));
+        assert_eq!(puzzle.profiler.node_count, 213407);
+        assert_eq!(puzzle.profiler.max_depth, 26);
     }
 }

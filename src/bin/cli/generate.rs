@@ -6,6 +6,7 @@ use std::thread;
 use std::time::Duration;
 use tsumego_solver::generation::generate_puzzle;
 use tsumego_solver::go::GoBoard;
+use tsumego_solver::puzzle::NoProfile;
 
 pub fn run(output_directory: &Path, thread_count: u8) -> io::Result<()> {
     fs::create_dir_all(output_directory)?;
@@ -15,7 +16,7 @@ pub fn run(output_directory: &Path, thread_count: u8) -> io::Result<()> {
     for _ in 0..thread_count {
         let tx = tx.clone();
         thread::spawn(move || loop {
-            let puzzle = generate_puzzle(Duration::from_secs(1));
+            let puzzle = generate_puzzle::<NoProfile>(Duration::from_secs(1));
             tx.send(puzzle).unwrap();
         });
     }
