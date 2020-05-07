@@ -6,21 +6,27 @@ fn playing_moves(c: &mut Criterion) {
     let mut group = c.benchmark_group("playing moves");
 
     group.bench_function("simple move", |b| {
-        let game = GoGame::from_sgf(include_str!("../src/test_sgfs/ko_rule_simple.sgf"));
-
-        b.iter(|| game.play_move(black_box(Move::Place(BoardPosition::new(4, 3)))))
+        b.iter_batched(
+            || GoGame::from_sgf(include_str!("../src/test_sgfs/ko_rule_simple.sgf")),
+            |game| game.play_move(black_box(Move::Place(BoardPosition::new(4, 3)))),
+            BatchSize::SmallInput,
+        )
     });
 
     group.bench_function("complex capture", |b| {
-        let game = GoGame::from_sgf(include_str!("../src/test_sgfs/complex_capture.sgf"));
-
-        b.iter(|| game.play_move(black_box(Move::Place(BoardPosition::new(11, 6)))))
+        b.iter_batched(
+            || GoGame::from_sgf(include_str!("../src/test_sgfs/complex_capture.sgf")),
+            |game| game.play_move(black_box(Move::Place(BoardPosition::new(11, 6)))),
+            BatchSize::SmallInput,
+        )
     });
 
     group.bench_function("generating all moves", |b| {
-        let game = GoGame::from_sgf(include_str!("../src/test_sgfs/puzzles/true_simple1.sgf"));
-
-        b.iter(|| game.generate_moves())
+        b.iter_batched(
+            || GoGame::from_sgf(include_str!("../src/test_sgfs/puzzles/true_simple1.sgf")),
+            |game| game.generate_moves(),
+            BatchSize::SmallInput,
+        )
     });
 }
 
@@ -28,25 +34,35 @@ fn unconditional_life(c: &mut Criterion) {
     let mut group = c.benchmark_group("unconditional life");
 
     group.bench_function("mixture", |b| {
-        let game = GoGame::from_sgf(include_str!("../src/test_sgfs/life_and_death/mixture.sgf"));
-
-        b.iter(|| game.get_board().unconditionally_alive_blocks())
+        b.iter_batched(
+            || GoGame::from_sgf(include_str!("../src/test_sgfs/life_and_death/mixture.sgf")),
+            |game| game.get_board().unconditionally_alive_blocks(),
+            BatchSize::SmallInput,
+        )
     });
 
     group.bench_function("all alive 1", |b| {
-        let game = GoGame::from_sgf(include_str!(
-            "../src/test_sgfs/life_and_death/all_alive1.sgf"
-        ));
-
-        b.iter(|| game.get_board().unconditionally_alive_blocks())
+        b.iter_batched(
+            || {
+                GoGame::from_sgf(include_str!(
+                    "../src/test_sgfs/life_and_death/all_alive1.sgf"
+                ))
+            },
+            |game| game.get_board().unconditionally_alive_blocks(),
+            BatchSize::SmallInput,
+        )
     });
 
     group.bench_function("all dead 1", |b| {
-        let game = GoGame::from_sgf(include_str!(
-            "../src/test_sgfs/life_and_death/all_dead1.sgf"
-        ));
-
-        b.iter(|| game.get_board().unconditionally_alive_blocks())
+        b.iter_batched(
+            || {
+                GoGame::from_sgf(include_str!(
+                    "../src/test_sgfs/life_and_death/all_dead1.sgf"
+                ))
+            },
+            |game| game.get_board().unconditionally_alive_blocks(),
+            BatchSize::SmallInput,
+        )
     });
 }
 
