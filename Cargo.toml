@@ -29,3 +29,9 @@ bench = false
 [[bench]]
 name = "main"
 harness = false
+
+[profile.release]
+lto = true
+
+[profile.bench]
+lto = true
