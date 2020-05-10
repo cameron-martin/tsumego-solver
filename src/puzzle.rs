@@ -1,7 +1,7 @@
 mod profiler;
 mod proof_number;
 
-use crate::go::{GoBoard, GoGame, GoPlayer, Move};
+use crate::go::{GoBoard, GoGame, GoPlayer, Move, PassState};
 use petgraph::stable_graph::NodeIndex;
 use petgraph::stable_graph::StableGraph;
 use petgraph::visit::EdgeRef;
@@ -64,17 +64,17 @@ impl AndOrNode {
         }
     }
 
-    pub fn create_true_leaf() -> AndOrNode {
-        AndOrNode {
-            proof_number: ProofNumber::finite(0),
-            disproof_number: ProofNumber::infinite(),
-        }
-    }
-
-    pub fn create_false_leaf() -> AndOrNode {
-        AndOrNode {
-            proof_number: ProofNumber::infinite(),
-            disproof_number: ProofNumber::finite(0),
+    pub fn create_terminal(value: bool) -> AndOrNode {
+        if value {
+            AndOrNode {
+                proof_number: ProofNumber::finite(0),
+                disproof_number: ProofNumber::infinite(),
+            }
+        } else {
+            AndOrNode {
+                proof_number: ProofNumber::infinite(),
+                disproof_number: ProofNumber::finite(0),
+            }
         }
     }
 
@@ -157,33 +157,8 @@ impl<P: Profiler> Puzzle<P> {
         self.profiler.add_nodes(moves.len() as u8);
 
         for (child, board_move) in moves {
-            let new_node = if board_move == Move::PassTwice {
-                // If both players pass sequentially, the game ends and
-                // the player to pass second loses.
-                if game.current_player == self.player {
-                    AndOrNode::create_false_leaf()
-                } else {
-                    AndOrNode::create_true_leaf()
-                }
-            // If the defender has unconditionally alive blocks, the defender wins
-            } else if !child
-                .get_board()
-                .unconditionally_alive_blocks_for_player(self.defender())
-                .is_empty()
-            {
-                if self.defender() == self.player {
-                    AndOrNode::create_true_leaf()
-                } else {
-                    AndOrNode::create_false_leaf()
-                }
-            // If the defender doesn't have any space to create eyes, the attacker wins
-            } else if self.is_defender_dead(child.get_board()) {
-                if self.attacker == self.player {
-                    AndOrNode::create_true_leaf()
-                } else {
-                    AndOrNode::create_false_leaf()
-                }
-            // Otherwise, the result is a non-terminal node
+            let new_node = if let Some(game_theoretic_value) = self.is_terminal(child) {
+                AndOrNode::create_terminal(game_theoretic_value)
             } else {
                 AndOrNode::create_non_terminal_leaf()
             };
@@ -192,6 +167,27 @@ impl<P: Profiler> Puzzle<P> {
 
             self.tree
                 .add_edge(self.current_node_id, new_node_id, board_move);
+        }
+    }
+
+    fn is_terminal(&self, game: GoGame) -> Option<bool> {
+        // If both players pass sequentially, the game ends and
+        // the player to pass second loses.
+        if game.pass_state == PassState::PassedTwice {
+            Some(game.current_player == self.player)
+        // If the defender has unconditionally alive blocks, the defender wins
+        } else if !game
+            .get_board()
+            .unconditionally_alive_blocks_for_player(self.defender())
+            .is_empty()
+        {
+            Some(self.defender() == self.player)
+        // If the defender doesn't have any space to create eyes, the attacker wins
+        } else if self.is_defender_dead(game.get_board()) {
+            Some(self.attacker == self.player)
+        // Otherwise, the result is a non-terminal node
+        } else {
+            None
         }
     }
 
