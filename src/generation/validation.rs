@@ -11,10 +11,6 @@ pub fn validate_candidate<P: Profiler>(candidate: GoBoard, timeout: Duration) ->
     GoPlayer::both().all(|first_player| {
         let mut puzzle = Puzzle::<P>::new(GoGame::from_board(candidate, *first_player));
 
-        if !puzzle.solve_with_timeout(timeout) {
-            return false;
-        }
-
-        puzzle.is_proved()
+        puzzle.solve()
     })
 }

@@ -42,9 +42,9 @@ impl Profile {
 impl Profiler for Profile {
     fn new() -> Profile {
         Profile {
-            current_depth: 1,
-            max_depth: 1,
-            node_count: 1,
+            current_depth: 0,
+            max_depth: 0,
+            node_count: 0,
             expanded_list: Vec::new(),
             expanded_set: HashSet::new(),
         }
