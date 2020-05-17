@@ -168,6 +168,10 @@ impl<P: Profiler> Puzzle<P> {
             self.tree
                 .add_edge(self.current_node_id, new_node_id, board_move);
         }
+
+        // Bump up max depth if necessary.
+        self.profiler.move_down();
+        self.profiler.move_up();
     }
 
     fn is_terminal(&self, game: GoGame) -> Option<bool> {
@@ -415,7 +419,7 @@ mod tests {
         assert!(puzzle.root_node().is_proved());
         assert_eq!(puzzle.first_move(), Move::Place(BoardPosition::new(4, 0)));
         assert_eq!(puzzle.profiler.node_count, 556);
-        assert_eq!(puzzle.profiler.max_depth, 6);
+        assert_eq!(puzzle.profiler.max_depth, 7);
     }
 
     #[test]
@@ -429,7 +433,7 @@ mod tests {
         assert!(puzzle.root_node().is_proved(), "{:?}", puzzle.root_node());
         assert_eq!(puzzle.first_move(), Move::Place(BoardPosition::new(2, 1)));
         assert_eq!(puzzle.profiler.node_count, 9270);
-        assert_eq!(puzzle.profiler.max_depth, 12);
+        assert_eq!(puzzle.profiler.max_depth, 13);
     }
 
     #[test]
@@ -443,7 +447,7 @@ mod tests {
         assert!(puzzle.root_node().is_proved(), "{:?}", puzzle.root_node());
         assert_eq!(puzzle.first_move(), Move::Place(BoardPosition::new(5, 0)));
         assert_eq!(puzzle.profiler.node_count, 132);
-        assert_eq!(puzzle.profiler.max_depth, 8);
+        assert_eq!(puzzle.profiler.max_depth, 9);
     }
 
     #[test]
@@ -457,7 +461,7 @@ mod tests {
         assert!(puzzle.root_node().is_proved(), "{:?}", puzzle.root_node());
         assert_eq!(puzzle.first_move(), Move::Place(BoardPosition::new(7, 0)));
         assert_eq!(puzzle.profiler.node_count, 42067);
-        assert_eq!(puzzle.profiler.max_depth, 11);
+        assert_eq!(puzzle.profiler.max_depth, 12);
     }
 
     #[test]
@@ -471,7 +475,7 @@ mod tests {
         assert!(puzzle.root_node().is_proved(), "{:?}", puzzle.root_node());
         assert_eq!(puzzle.first_move(), Move::Place(BoardPosition::new(14, 2)));
         assert_eq!(puzzle.profiler.node_count, 213407);
-        assert_eq!(puzzle.profiler.max_depth, 26);
+        assert_eq!(puzzle.profiler.max_depth, 27);
     }
 
     #[test]
@@ -485,6 +489,6 @@ mod tests {
         assert!(puzzle.root_node().is_proved(), "{:?}", puzzle.root_node());
         assert_eq!(puzzle.first_move(), Move::Place(BoardPosition::new(1, 0)));
         assert_eq!(puzzle.profiler.node_count, 5);
-        assert_eq!(puzzle.profiler.max_depth, 1);
+        assert_eq!(puzzle.profiler.max_depth, 2);
     }
 }
