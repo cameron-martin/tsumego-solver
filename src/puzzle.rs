@@ -473,4 +473,18 @@ mod tests {
         assert_eq!(puzzle.profiler.node_count, 213407);
         assert_eq!(puzzle.profiler.max_depth, 26);
     }
+
+    #[test]
+    fn true_ultrasimple1() {
+        let tsumego = GoGame::from_sgf(include_str!("test_sgfs/puzzles/true_ultrasimple1.sgf"));
+
+        let mut puzzle = Puzzle::<Profile>::new(tsumego);
+
+        puzzle.solve();
+
+        assert!(puzzle.root_node().is_proved(), "{:?}", puzzle.root_node());
+        assert_eq!(puzzle.first_move(), Move::Place(BoardPosition::new(1, 0)));
+        assert_eq!(puzzle.profiler.node_count, 5);
+        assert_eq!(puzzle.profiler.max_depth, 1);
+    }
 }
