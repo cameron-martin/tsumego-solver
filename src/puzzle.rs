@@ -2,12 +2,10 @@ mod profiler;
 mod proof_number;
 
 use crate::go::{GoBoard, GoGame, GoPlayer, Move, PassState};
-use petgraph::stable_graph::NodeIndex;
-use petgraph::stable_graph::StableGraph;
-use petgraph::visit::EdgeRef;
-use petgraph::Direction;
 pub use profiler::{NoProfile, Profile, Profiler};
 use proof_number::ProofNumber;
+use std::cmp;
+use std::collections::HashMap;
 use std::fmt;
 use std::fmt::{Debug, Formatter};
 use std::time::Duration;
@@ -39,17 +37,17 @@ impl Debug for NodeType {
 
 #[derive(Clone, Copy)]
 pub struct AndOrNode {
-    proof_number: ProofNumber,
-    disproof_number: ProofNumber,
+    phi: ProofNumber,
+    delta: ProofNumber,
 }
 
 impl Debug for AndOrNode {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         f.write_fmt(format_args!(
-            "Proof/Disproof Numbers: {:?}/{:?}",
+            "Phi/Delta: {:?}/{:?}",
             // self.of_type,
-            self.proof_number,
-            self.disproof_number,
+            self.phi,
+            self.delta,
             // self.game.current_player,
             // self.game.get_board()
         ))
@@ -59,53 +57,29 @@ impl Debug for AndOrNode {
 impl AndOrNode {
     pub fn create_non_terminal_leaf() -> AndOrNode {
         AndOrNode {
-            proof_number: ProofNumber::finite(1),
-            disproof_number: ProofNumber::finite(1),
+            phi: ProofNumber::finite(1),
+            delta: ProofNumber::finite(1),
         }
-    }
-
-    pub fn create_terminal(value: bool) -> AndOrNode {
-        if value {
-            AndOrNode {
-                proof_number: ProofNumber::finite(0),
-                disproof_number: ProofNumber::infinite(),
-            }
-        } else {
-            AndOrNode {
-                proof_number: ProofNumber::infinite(),
-                disproof_number: ProofNumber::finite(0),
-            }
-        }
-    }
-
-    pub fn is_proved(self) -> bool {
-        self.proof_number == ProofNumber::finite(0)
-    }
-
-    pub fn is_disproved(self) -> bool {
-        self.disproof_number == ProofNumber::finite(0)
-    }
-
-    pub fn is_solved(self) -> bool {
-        self.is_proved() || self.is_disproved()
     }
 }
 
+struct Node {
+    game: GoGame,
+    phi_threshold: ProofNumber,
+    delta_threshold: ProofNumber,
+    children: Vec<GoGame>,
+}
+
 pub struct Puzzle<P: Profiler> {
+    root_game: GoGame,
+    tt: HashMap<GoGame, AndOrNode>,
     player: GoPlayer,
     attacker: GoPlayer,
-    pub tree: StableGraph<AndOrNode, Move>,
-    pub root_id: NodeIndex,
-    pub current_node_id: NodeIndex,
-    game_stack: Vec<GoGame>,
-    current_type: NodeType,
-    pub profiler: P,
+    profiler: P,
 }
 
 impl<P: Profiler> Puzzle<P> {
     pub fn new(game: GoGame) -> Puzzle<P> {
-        // debug_assert_eq!(game.plys(), 0);
-
         let attacker = if !(game.get_board().out_of_bounds().expand_one()
             & game.get_board().get_bitboard_for_player(GoPlayer::White))
         .is_empty()
@@ -114,21 +88,11 @@ impl<P: Profiler> Puzzle<P> {
         } else {
             GoPlayer::Black
         };
-
-        let player = game.current_player;
-
-        let mut tree = StableGraph::<AndOrNode, Move>::new();
-
-        let root_id = tree.add_node(AndOrNode::create_non_terminal_leaf());
-
         Puzzle {
-            player,
+            root_game: game,
+            tt: HashMap::new(),
+            player: game.current_player,
             attacker,
-            tree,
-            root_id,
-            current_node_id: root_id,
-            game_stack: vec![game],
-            current_type: NodeType::Or,
             profiler: P::new(),
         }
     }
@@ -139,39 +103,6 @@ impl<P: Profiler> Puzzle<P> {
 
     fn defender(&self) -> GoPlayer {
         self.attacker.flip()
-    }
-
-    pub fn current_game(&self) -> GoGame {
-        *self.game_stack.last().unwrap()
-    }
-
-    fn develop_current_node(&mut self) {
-        debug_assert!(self.tree.neighbors(self.current_node_id).next().is_none());
-
-        let game = self.current_game();
-
-        let moves = game.generate_moves_including_pass();
-
-        debug_assert!(!moves.is_empty(), "No moves found for node: {:?}", game);
-
-        self.profiler.expand_node(game, moves.len() as u8);
-
-        for (child, board_move) in moves.iter().rev() {
-            let new_node = if let Some(game_theoretic_value) = self.is_terminal(*child) {
-                AndOrNode::create_terminal(game_theoretic_value)
-            } else {
-                AndOrNode::create_non_terminal_leaf()
-            };
-
-            let new_node_id = self.tree.add_node(new_node);
-
-            self.tree
-                .add_edge(self.current_node_id, new_node_id, *board_move);
-        }
-
-        // Bump up max depth if necessary.
-        self.profiler.move_down();
-        self.profiler.move_up();
     }
 
     fn is_terminal(&self, game: GoGame) -> Option<bool> {
@@ -208,198 +139,169 @@ impl<P: Profiler> Puzzle<P> {
         maximum_living_shape.interior().count() < 2
     }
 
-    fn select_most_proving_node(&mut self) {
-        loop {
-            let mut outgoing_edges = self.tree.edges(self.current_node_id);
+    pub fn solve(&mut self) -> bool {
+        let mut root_node = Node {
+            game: self.root_game,
+            phi_threshold: ProofNumber::infinite(),
+            delta_threshold: ProofNumber::infinite(),
+            children: Vec::new(),
+        };
 
-            if self.tree.neighbors(self.current_node_id).next().is_none() {
-                break;
-            }
+        self.mid_profile(&mut root_node);
 
-            let node = self.tree[self.current_node_id];
-            let chosen_edge = match self.current_type {
-                NodeType::Or => {
-                    debug_assert_ne!(node.proof_number, ProofNumber::finite(0), "{:?}", node);
-
-                    outgoing_edges
-                        .find(|&edge_ref| {
-                            let child = self.tree[edge_ref.target()];
-
-                            child.proof_number == node.proof_number
-                        })
-                        .unwrap()
-                }
-                NodeType::And => {
-                    debug_assert_ne!(node.disproof_number, ProofNumber::finite(0), "{:?}", node);
-
-                    outgoing_edges
-                        .find(|&edge_ref| {
-                            let child = self.tree[edge_ref.target()];
-
-                            child.disproof_number == node.disproof_number
-                        })
-                        .unwrap()
-                }
-            };
-
-            let node_id = chosen_edge.target();
-            let go_move = *chosen_edge.weight();
-
-            self.move_down(node_id, go_move);
-        }
+        root_node.delta_threshold == ProofNumber::infinite()
     }
 
-    pub fn move_down(&mut self, node_id: NodeIndex, go_move: Move) {
-        self.current_node_id = node_id;
-        self.current_type = self.current_type.flip();
-        self.game_stack
-            .push(self.current_game().play_move(go_move).unwrap());
-
+    fn mid_profile(&mut self, node: &mut Node) {
         self.profiler.move_down();
+        self.mid(node);
+        self.profiler.move_up();
     }
 
-    pub fn move_up(&mut self) -> bool {
-        if let Some(parent_node_id) = self
-            .tree
-            .neighbors_directed(self.current_node_id, Direction::Incoming)
-            .next()
-        {
-            self.current_node_id = parent_node_id;
-            self.current_type = self.current_type.flip();
-            self.game_stack.pop();
+    fn mid(&mut self, node: &mut Node) {
+        let proof_numbers = self.tt_get(node.game);
 
-            self.profiler.move_up();
-
-            true
-        } else {
-            false
-        }
-    }
-
-    pub fn solve(&mut self) {
-        while !self.is_solved() {
-            self.solve_iteration();
-        }
-    }
-
-    pub fn solve_with_timeout(&mut self, timeout: Duration) -> bool {
-        let timeout_at = Instant::now() + timeout;
-
-        while !self.is_solved() {
-            if Instant::now() > timeout_at {
-                return false;
-            }
-
-            self.solve_iteration();
-        }
-
-        true
-    }
-
-    pub fn is_solved(&self) -> bool {
-        self.root_node().is_solved()
-    }
-
-    pub fn is_proved(&self) -> bool {
-        self.root_node().is_proved()
-    }
-
-    fn solve_iteration(&mut self) {
-        self.select_most_proving_node();
-        self.develop_current_node();
-        self.update_ancestors();
-    }
-
-    fn update_ancestors(&mut self) {
-        loop {
-            let has_changed = self.set_proof_and_disproof_numbers();
-
-            if !has_changed {
-                break;
-            }
-
-            self.prune_if_solved();
-
-            if !self.move_up() {
-                break;
-            }
-        }
-    }
-
-    fn set_proof_and_disproof_numbers(&mut self) -> bool {
-        let children = self
-            .tree
-            .neighbors(self.current_node_id)
-            .map(|child_id| self.tree[child_id]);
-
-        let mut proof_number_sum = ProofNumber::finite(0);
-        let mut proof_number_min = ProofNumber::infinite();
-        let mut disproof_number_sum = ProofNumber::finite(0);
-        let mut disproof_number_min = ProofNumber::infinite();
-
-        for child in children {
-            proof_number_sum = proof_number_sum + child.proof_number;
-            disproof_number_sum = disproof_number_sum + child.disproof_number;
-
-            if child.proof_number < proof_number_min {
-                proof_number_min = child.proof_number;
-            }
-
-            if child.disproof_number < disproof_number_min {
-                disproof_number_min = child.disproof_number;
-            }
-        }
-
-        let node = &mut self.tree[self.current_node_id];
-        match self.current_type {
-            NodeType::And => {
-                let has_changed = proof_number_sum != node.proof_number
-                    || disproof_number_min != node.disproof_number;
-
-                node.proof_number = proof_number_sum;
-                node.disproof_number = disproof_number_min;
-
-                has_changed
-            }
-            NodeType::Or => {
-                let has_changed = proof_number_min != node.proof_number
-                    || disproof_number_sum != node.disproof_number;
-
-                node.proof_number = proof_number_min;
-                node.disproof_number = disproof_number_sum;
-
-                has_changed
-            }
-        }
-    }
-
-    fn prune_if_solved(&mut self) {
-        // Don't prune the root
-        if self.current_node_id == self.root_id {
+        if proof_numbers.phi >= node.phi_threshold || proof_numbers.delta >= node.delta_threshold {
+            node.delta_threshold = proof_numbers.delta;
+            node.phi_threshold = proof_numbers.phi;
             return;
         }
 
-        let node = self.tree[self.current_node_id];
-
-        if node.is_solved() {
-            let mut walker = self.tree.neighbors(self.current_node_id).detach();
-            while let Some(child_id) = walker.next_node(&self.tree) {
-                self.tree.remove_node(child_id);
+        if let Some(game_theoretic_value) = self.is_terminal(node.game) {
+            if self.is_or_node(node.game) ^ game_theoretic_value {
+                node.phi_threshold = ProofNumber::infinite();
+                node.delta_threshold = ProofNumber::finite(0);
+            } else {
+                node.phi_threshold = ProofNumber::finite(0);
+                node.delta_threshold = ProofNumber::infinite();
             }
+
+            self.tt_store_thresholds(node);
+            return;
+        }
+
+        // TODO: Create a "caterpillar tree stack" to store these child relationships
+        for (child, _) in node.game.generate_moves_including_pass() {
+            node.children.push(child);
+        }
+
+        self.profiler
+            .expand_node(node.game, node.children.len() as u8);
+
+        self.tt_store_thresholds(node);
+
+        loop {
+            let min = self.min(node);
+            let sum = self.sum(node);
+            if node.phi_threshold <= min || node.delta_threshold <= sum {
+                node.phi_threshold = min;
+                node.delta_threshold = sum;
+                self.tt_store_thresholds(node);
+                return;
+            }
+
+            let (n_c, phi_c, delta_2) = self.select_child(node, proof_numbers.phi);
+
+            let mut child_node = Node {
+                game: n_c,
+                phi_threshold: node.delta_threshold + phi_c - sum,
+                delta_threshold: cmp::min(node.phi_threshold, delta_2 + ProofNumber::finite(1)),
+                children: Vec::new(),
+            };
+
+            self.mid_profile(&mut child_node);
         }
     }
 
-    fn root_node(&self) -> AndOrNode {
-        self.tree[self.root_id]
+    fn select_child(&self, n: &Node, delta_c: ProofNumber) -> (GoGame, ProofNumber, ProofNumber) {
+        let delta_bound = delta_c;
+
+        let mut delta_c = ProofNumber::infinite();
+        let mut delta_2 = ProofNumber::infinite();
+        let mut phi_c = ProofNumber::infinite();
+
+        let mut n_best = None;
+
+        for &child in n.children.iter() {
+            let AndOrNode { phi, mut delta } = self.tt_get(child);
+
+            if phi != ProofNumber::infinite() {
+                delta = cmp::max(delta, delta_bound);
+            }
+            if delta < delta_c {
+                n_best = Some(child);
+                delta_2 = delta_c;
+                phi_c = phi;
+                delta_c = delta;
+            } else if delta < delta_2 {
+                delta_2 = delta;
+            }
+
+            if phi == ProofNumber::infinite() {
+                break;
+            }
+        }
+
+        (n_best.unwrap(), phi_c, delta_2)
+    }
+
+    fn min(&self, node: &Node) -> ProofNumber {
+        node.children
+            .iter()
+            .map(|&child| self.tt_get(child).delta)
+            .min()
+            .unwrap()
+    }
+
+    fn sum(&self, node: &Node) -> ProofNumber {
+        node.children
+            .iter()
+            .map(|&child| self.tt_get(child).phi)
+            .sum()
+    }
+
+    fn is_and_node(&self, game: GoGame) -> bool {
+        !self.is_or_node(game)
+    }
+
+    fn is_or_node(&self, game: GoGame) -> bool {
+        game.current_player == self.player
+    }
+
+    fn tt_store_thresholds(&mut self, node: &Node) {
+        self.tt_store(
+            node.game,
+            AndOrNode {
+                phi: node.phi_threshold,
+                delta: node.delta_threshold,
+            },
+        )
+    }
+
+    fn tt_store(&mut self, game: GoGame, value: AndOrNode) {
+        self.tt.insert(game, value);
+    }
+
+    fn tt_get(&self, game: GoGame) -> AndOrNode {
+        *self
+            .tt
+            .get(&game)
+            .unwrap_or(&AndOrNode::create_non_terminal_leaf())
     }
 
     pub fn first_move(&self) -> Move {
-        *self
-            .tree
-            .edges(self.root_id)
-            .find(|edge| self.tree[edge.target()].is_proved())
-            .unwrap()
-            .weight()
+        let children = self.root_game.generate_moves_including_pass();
+
+        let (_, board_move) = children
+            .iter()
+            .find(|(child, _)| {
+                let AndOrNode { phi, delta: _ } = self.tt_get(*child);
+
+                phi == ProofNumber::infinite()
+            })
+            .unwrap();
+
+        *board_move
     }
 }
 
@@ -417,12 +319,12 @@ mod tests {
 
         let mut puzzle = Puzzle::<Profile>::new(tsumego);
 
-        puzzle.solve();
+        let won = puzzle.solve();
 
-        assert!(puzzle.root_node().is_proved());
+        assert!(won);
         assert_eq!(puzzle.first_move(), Move::Place(BoardPosition::new(4, 0)));
-        assert_display_snapshot!(puzzle.profiler.node_count, @"542");
-        assert_display_snapshot!(puzzle.profiler.max_depth, @"7");
+        assert_display_snapshot!(puzzle.profiler.node_count, @"1146");
+        assert_display_snapshot!(puzzle.profiler.max_depth, @"6");
     }
 
     #[test]
@@ -431,12 +333,12 @@ mod tests {
 
         let mut puzzle = Puzzle::<Profile>::new(tsumego);
 
-        puzzle.solve();
+        let won = puzzle.solve();
 
-        assert!(puzzle.root_node().is_proved(), "{:?}", puzzle.root_node());
+        assert!(won);
         assert_eq!(puzzle.first_move(), Move::Place(BoardPosition::new(2, 1)));
-        assert_display_snapshot!(puzzle.profiler.node_count, @"5453");
-        assert_display_snapshot!(puzzle.profiler.max_depth, @"15");
+        assert_display_snapshot!(puzzle.profiler.node_count, @"10500");
+        assert_display_snapshot!(puzzle.profiler.max_depth, @"14");
     }
 
     #[test]
@@ -445,11 +347,11 @@ mod tests {
 
         let mut puzzle = Puzzle::<Profile>::new(tsumego);
 
-        puzzle.solve();
+        let won = puzzle.solve();
 
-        assert!(puzzle.root_node().is_proved(), "{:?}", puzzle.root_node());
+        assert!(won);
         assert_eq!(puzzle.first_move(), Move::Place(BoardPosition::new(5, 0)));
-        assert_display_snapshot!(puzzle.profiler.node_count, @"219");
+        assert_display_snapshot!(puzzle.profiler.node_count, @"313");
         assert_display_snapshot!(puzzle.profiler.max_depth, @"9");
     }
 
@@ -459,12 +361,12 @@ mod tests {
 
         let mut puzzle = Puzzle::<Profile>::new(tsumego);
 
-        puzzle.solve();
+        let won = puzzle.solve();
 
-        assert!(puzzle.root_node().is_proved(), "{:?}", puzzle.root_node());
+        assert!(won);
         assert_eq!(puzzle.first_move(), Move::Place(BoardPosition::new(7, 0)));
-        assert_display_snapshot!(puzzle.profiler.node_count, @"59145");
-        assert_display_snapshot!(puzzle.profiler.max_depth, @"18");
+        assert_display_snapshot!(puzzle.profiler.node_count, @"537429");
+        assert_display_snapshot!(puzzle.profiler.max_depth, @"12");
     }
 
     #[test]
@@ -473,12 +375,12 @@ mod tests {
 
         let mut puzzle = Puzzle::<Profile>::new(tsumego);
 
-        puzzle.solve();
+        let won = puzzle.solve();
 
-        assert!(puzzle.root_node().is_proved(), "{:?}", puzzle.root_node());
+        assert!(won);
         assert_eq!(puzzle.first_move(), Move::Place(BoardPosition::new(14, 2)));
-        assert_display_snapshot!(puzzle.profiler.node_count, @"345725");
-        assert_display_snapshot!(puzzle.profiler.max_depth, @"29");
+        assert_display_snapshot!(puzzle.profiler.node_count, @"409993");
+        assert_display_snapshot!(puzzle.profiler.max_depth, @"28");
     }
 
     #[test]
@@ -487,11 +389,11 @@ mod tests {
 
         let mut puzzle = Puzzle::<Profile>::new(tsumego);
 
-        puzzle.solve();
+        let won = puzzle.solve();
 
-        assert!(puzzle.root_node().is_proved(), "{:?}", puzzle.root_node());
+        assert!(won);
         assert_eq!(puzzle.first_move(), Move::Place(BoardPosition::new(1, 0)));
-        assert_display_snapshot!(puzzle.profiler.node_count, @"5");
+        assert_display_snapshot!(puzzle.profiler.node_count, @"7");
         assert_display_snapshot!(puzzle.profiler.max_depth, @"2");
     }
 
@@ -501,11 +403,11 @@ mod tests {
 
         let mut puzzle = Puzzle::<Profile>::new(tsumego);
 
-        puzzle.solve();
+        let won = puzzle.solve();
 
-        assert!(puzzle.root_node().is_proved(), "{:?}", puzzle.root_node());
+        assert!(won);
         assert_eq!(puzzle.first_move(), Move::Place(BoardPosition::new(1, 0)));
-        assert_display_snapshot!(puzzle.profiler.node_count, @"173");
+        assert_display_snapshot!(puzzle.profiler.node_count, @"237");
         assert_display_snapshot!(puzzle.profiler.max_depth, @"9");
     }
 

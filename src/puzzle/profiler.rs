@@ -42,9 +42,9 @@ impl Profile {
 impl Profiler for Profile {
     fn new() -> Profile {
         Profile {
-            current_depth: 1,
-            max_depth: 1,
-            node_count: 1,
+            current_depth: 0,
+            max_depth: 0,
+            node_count: 0,
             expanded_list: Vec::new(),
             expanded_set: HashSet::new(),
         }
@@ -65,7 +65,7 @@ impl Profiler for Profile {
         if !self.expanded_set.contains(&node) {
             self.expanded_set.insert(node);
             self.expanded_list.push((node, self.current_depth));
+            self.node_count += child_count as u32;
         }
-        self.node_count += child_count as u32;
     }
 }
