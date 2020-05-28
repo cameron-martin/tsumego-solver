@@ -17,6 +17,7 @@ rand = "0.7"
 criterion = "0.3.1"
 quickcheck = "0.9"
 quickcheck_macros = "0.9"
+insta = "0.16.0"
 
 [lib]
 bench = false

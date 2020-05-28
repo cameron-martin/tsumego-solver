@@ -33,7 +33,7 @@ pub enum BoardCell {
     Occupied(GoPlayer),
 }
 
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 pub enum GoPlayer {
     Black,
     White,
@@ -62,7 +62,7 @@ impl Display for GoPlayer {
 }
 
 // Being set in both black and white denotes "out of bounds"
-#[derive(PartialEq, Clone, Copy, Debug, Hash)]
+#[derive(PartialEq, Clone, Copy, Debug, Eq, Hash)]
 pub struct GoBoard {
     white: BitBoard,
     black: BitBoard,
@@ -238,7 +238,7 @@ pub enum PassState {
     PassedTwice,
 }
 
-#[derive(Debug, PartialEq, Clone, Copy)]
+#[derive(Debug, PartialEq, Clone, Copy, Eq, Hash)]
 pub struct GoGame {
     ko_violations: BitBoard,
     board: GoBoard,

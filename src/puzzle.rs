@@ -154,10 +154,10 @@ impl<P: Profiler> Puzzle<P> {
 
         debug_assert!(!moves.is_empty(), "No moves found for node: {:?}", game);
 
-        self.profiler.add_nodes(moves.len() as u8);
+        self.profiler.expand_node(game, moves.len() as u8);
 
-        for (child, board_move) in moves {
-            let new_node = if let Some(game_theoretic_value) = self.is_terminal(child) {
+        for (child, board_move) in moves.iter().rev() {
+            let new_node = if let Some(game_theoretic_value) = self.is_terminal(*child) {
                 AndOrNode::create_terminal(game_theoretic_value)
             } else {
                 AndOrNode::create_non_terminal_leaf()
@@ -166,7 +166,7 @@ impl<P: Profiler> Puzzle<P> {
             let new_node_id = self.tree.add_node(new_node);
 
             self.tree
-                .add_edge(self.current_node_id, new_node_id, board_move);
+                .add_edge(self.current_node_id, new_node_id, *board_move);
         }
 
         // Bump up max depth if necessary.
@@ -407,6 +407,9 @@ impl<P: Profiler> Puzzle<P> {
 mod tests {
     use super::*;
     use crate::go::{BoardPosition, GoGame};
+    use insta::{assert_display_snapshot, assert_snapshot};
+    use profiler::Profile;
+    use std::borrow::Borrow;
 
     #[test]
     fn true_simple1() {
@@ -418,8 +421,8 @@ mod tests {
 
         assert!(puzzle.root_node().is_proved());
         assert_eq!(puzzle.first_move(), Move::Place(BoardPosition::new(4, 0)));
-        assert_eq!(puzzle.profiler.node_count, 556);
-        assert_eq!(puzzle.profiler.max_depth, 7);
+        assert_display_snapshot!(puzzle.profiler.node_count, @"542");
+        assert_display_snapshot!(puzzle.profiler.max_depth, @"7");
     }
 
     #[test]
@@ -432,8 +435,8 @@ mod tests {
 
         assert!(puzzle.root_node().is_proved(), "{:?}", puzzle.root_node());
         assert_eq!(puzzle.first_move(), Move::Place(BoardPosition::new(2, 1)));
-        assert_eq!(puzzle.profiler.node_count, 9270);
-        assert_eq!(puzzle.profiler.max_depth, 13);
+        assert_display_snapshot!(puzzle.profiler.node_count, @"5453");
+        assert_display_snapshot!(puzzle.profiler.max_depth, @"15");
     }
 
     #[test]
@@ -446,8 +449,8 @@ mod tests {
 
         assert!(puzzle.root_node().is_proved(), "{:?}", puzzle.root_node());
         assert_eq!(puzzle.first_move(), Move::Place(BoardPosition::new(5, 0)));
-        assert_eq!(puzzle.profiler.node_count, 132);
-        assert_eq!(puzzle.profiler.max_depth, 9);
+        assert_display_snapshot!(puzzle.profiler.node_count, @"219");
+        assert_display_snapshot!(puzzle.profiler.max_depth, @"9");
     }
 
     #[test]
@@ -460,8 +463,8 @@ mod tests {
 
         assert!(puzzle.root_node().is_proved(), "{:?}", puzzle.root_node());
         assert_eq!(puzzle.first_move(), Move::Place(BoardPosition::new(7, 0)));
-        assert_eq!(puzzle.profiler.node_count, 42067);
-        assert_eq!(puzzle.profiler.max_depth, 12);
+        assert_display_snapshot!(puzzle.profiler.node_count, @"59145");
+        assert_display_snapshot!(puzzle.profiler.max_depth, @"18");
     }
 
     #[test]
@@ -474,8 +477,8 @@ mod tests {
 
         assert!(puzzle.root_node().is_proved(), "{:?}", puzzle.root_node());
         assert_eq!(puzzle.first_move(), Move::Place(BoardPosition::new(14, 2)));
-        assert_eq!(puzzle.profiler.node_count, 213407);
-        assert_eq!(puzzle.profiler.max_depth, 27);
+        assert_display_snapshot!(puzzle.profiler.node_count, @"345725");
+        assert_display_snapshot!(puzzle.profiler.max_depth, @"29");
     }
 
     #[test]
@@ -488,7 +491,36 @@ mod tests {
 
         assert!(puzzle.root_node().is_proved(), "{:?}", puzzle.root_node());
         assert_eq!(puzzle.first_move(), Move::Place(BoardPosition::new(1, 0)));
-        assert_eq!(puzzle.profiler.node_count, 5);
-        assert_eq!(puzzle.profiler.max_depth, 2);
+        assert_display_snapshot!(puzzle.profiler.node_count, @"5");
+        assert_display_snapshot!(puzzle.profiler.max_depth, @"2");
+    }
+
+    #[test]
+    fn true_ultrasimple2() {
+        let tsumego = GoGame::from_sgf(include_str!("test_sgfs/puzzles/true_ultrasimple2.sgf"));
+
+        let mut puzzle = Puzzle::<Profile>::new(tsumego);
+
+        puzzle.solve();
+
+        assert!(puzzle.root_node().is_proved(), "{:?}", puzzle.root_node());
+        assert_eq!(puzzle.first_move(), Move::Place(BoardPosition::new(1, 0)));
+        assert_display_snapshot!(puzzle.profiler.node_count, @"173");
+        assert_display_snapshot!(puzzle.profiler.max_depth, @"9");
+    }
+
+    #[test]
+    fn trace_expanded_nodes() {
+        let tsumego = GoGame::from_sgf(include_str!("test_sgfs/puzzles/true_ultrasimple2.sgf"));
+        let mut puzzle = Puzzle::<Profile>::new(tsumego);
+
+        puzzle.solve();
+
+        let mut output = String::new();
+        for node in puzzle.profiler.expanded_list {
+            output.push_str(format!("{}\n", node.get_board()).borrow());
+        }
+
+        assert_snapshot!(output);
     }
 }
