@@ -517,8 +517,10 @@ mod tests {
         puzzle.solve();
 
         let mut output = String::new();
+        let mut count = 1;
         for node in puzzle.profiler.expanded_list {
-            output.push_str(format!("{}\n", node.get_board()).borrow());
+            output.push_str(format!("{}:\n{}\n\n", count, node.get_board()).borrow());
+            count += 1;
         }
 
         assert_snapshot!(output);
