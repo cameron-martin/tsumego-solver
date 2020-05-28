@@ -26,7 +26,7 @@ pub struct Profile {
     current_depth: u8,
     pub max_depth: u8,
     pub node_count: u32,
-    pub expanded_list: Vec<GoGame>,
+    pub expanded_list: Vec<(GoGame, u8)>,
     expanded_set: HashSet<GoGame>,
 }
 
@@ -64,7 +64,7 @@ impl Profiler for Profile {
     fn expand_node(&mut self, node: GoGame, child_count: u8) {
         if !self.expanded_set.contains(&node) {
             self.expanded_set.insert(node);
-            self.expanded_list.push(node);
+            self.expanded_list.push((node, self.current_depth));
         }
         self.node_count += child_count as u32;
     }
