@@ -65,7 +65,7 @@ impl Profiler for Profile {
         if !self.expanded_set.contains(&node) {
             self.expanded_set.insert(node);
             self.expanded_list.push((node, self.current_depth));
+            self.node_count += child_count as u32;
         }
-        self.node_count += child_count as u32;
     }
 }

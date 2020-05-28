@@ -323,7 +323,7 @@ mod tests {
 
         assert!(won);
         assert_eq!(puzzle.first_move(), Move::Place(BoardPosition::new(4, 0)));
-        assert_display_snapshot!(puzzle.profiler.node_count, @"1289");
+        assert_display_snapshot!(puzzle.profiler.node_count, @"1146");
         assert_display_snapshot!(puzzle.profiler.max_depth, @"6");
     }
 
@@ -337,7 +337,7 @@ mod tests {
 
         assert!(won);
         assert_eq!(puzzle.first_move(), Move::Place(BoardPosition::new(2, 1)));
-        assert_display_snapshot!(puzzle.profiler.node_count, @"10481");
+        assert_display_snapshot!(puzzle.profiler.node_count, @"10500");
         assert_display_snapshot!(puzzle.profiler.max_depth, @"14");
     }
 
@@ -351,7 +351,7 @@ mod tests {
 
         assert!(won);
         assert_eq!(puzzle.first_move(), Move::Place(BoardPosition::new(5, 0)));
-        assert_display_snapshot!(puzzle.profiler.node_count, @"303");
+        assert_display_snapshot!(puzzle.profiler.node_count, @"313");
         assert_display_snapshot!(puzzle.profiler.max_depth, @"9");
     }
 
@@ -365,8 +365,8 @@ mod tests {
 
         assert!(won);
         assert_eq!(puzzle.first_move(), Move::Place(BoardPosition::new(7, 0)));
-        assert_display_snapshot!(puzzle.profiler.node_count, @"157164");
-        assert_display_snapshot!(puzzle.profiler.max_depth, @"14");
+        assert_display_snapshot!(puzzle.profiler.node_count, @"537429");
+        assert_display_snapshot!(puzzle.profiler.max_depth, @"12");
     }
 
     #[test]
@@ -379,8 +379,8 @@ mod tests {
 
         assert!(won);
         assert_eq!(puzzle.first_move(), Move::Place(BoardPosition::new(14, 2)));
-        assert_display_snapshot!(puzzle.profiler.node_count, @"87171");
-        assert_display_snapshot!(puzzle.profiler.max_depth, @"24");
+        assert_display_snapshot!(puzzle.profiler.node_count, @"409993");
+        assert_display_snapshot!(puzzle.profiler.max_depth, @"28");
     }
 
     #[test]

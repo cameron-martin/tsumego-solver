@@ -242,6 +242,7 @@ pub enum PassState {
 pub struct GoGame {
     ko_violations: BitBoard,
     board: GoBoard,
+    previous_hash: u64,
     pub current_player: GoPlayer,
     pub pass_state: PassState,
 }
@@ -260,6 +261,7 @@ impl GoGame {
         GoGame {
             board: GoBoard::empty(),
             ko_violations: BitBoard::empty(),
+            previous_hash: 0,
             current_player: GoPlayer::Black,
             pass_state: PassState::NoPass,
         }
@@ -269,6 +271,7 @@ impl GoGame {
         GoGame {
             board,
             ko_violations: BitBoard::empty(),
+            previous_hash: 0,
             current_player,
             pass_state: PassState::NoPass,
         }
@@ -349,6 +352,7 @@ impl GoGame {
         Ok(GoGame {
             ko_violations,
             board: new_board,
+            previous_hash: self.stable_hash(),
             current_player: next_player,
             pass_state: PassState::NoPass,
         })
@@ -358,6 +362,7 @@ impl GoGame {
         GoGame {
             board: self.board,
             ko_violations: BitBoard::empty(),
+            previous_hash: self.stable_hash(),
             current_player: self.current_player.flip(),
             pass_state: match self.pass_state {
                 PassState::NoPass => PassState::PassedOnce,
@@ -395,11 +400,19 @@ impl GoGame {
 
         games
     }
+
+    pub fn stable_hash(&self) -> u64 {
+        let mut hasher = DefaultHasher::new();
+        self.hash(&mut hasher);
+
+        hasher.finish()
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use insta::assert_display_snapshot;
 
     #[test]
     fn can_add_stone() {
@@ -615,6 +628,7 @@ mod tests {
 
     #[test]
     fn hashing_is_stable() {
-        assert_eq!(GoBoard::empty().stable_hash(), 13284472273662876477);
+        assert_display_snapshot!(GoGame::empty().stable_hash(), @"6580437524906916578");
+        assert_display_snapshot!(GoBoard::empty().stable_hash(), @"13284472273662876477");
     }
 }
