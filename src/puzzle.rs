@@ -1,7 +1,8 @@
 mod profiler;
 mod proof_number;
+mod terminal_detection;
 
-use crate::go::{GoBoard, GoGame, GoPlayer, Move, PassState};
+use crate::go::{GoGame, GoPlayer, Move};
 use petgraph::stable_graph::NodeIndex;
 use petgraph::stable_graph::StableGraph;
 use petgraph::visit::EdgeRef;
@@ -137,10 +138,6 @@ impl<P: Profiler> Puzzle<P> {
         Self::new(GoGame::from_sgf(sgf_string))
     }
 
-    fn defender(&self) -> GoPlayer {
-        self.attacker.flip()
-    }
-
     pub fn current_game(&self) -> GoGame {
         *self.game_stack.last().unwrap()
     }
@@ -157,7 +154,9 @@ impl<P: Profiler> Puzzle<P> {
         self.profiler.expand_node(game, moves.len() as u8);
 
         for (child, board_move) in moves.iter().rev() {
-            let new_node = if let Some(game_theoretic_value) = self.is_terminal(*child) {
+            let new_node = if let Some(game_theoretic_value) =
+                terminal_detection::is_terminal(*child, self.player, self.attacker)
+            {
                 AndOrNode::create_terminal(game_theoretic_value)
             } else {
                 AndOrNode::create_non_terminal_leaf()
@@ -172,40 +171,6 @@ impl<P: Profiler> Puzzle<P> {
         // Bump up max depth if necessary.
         self.profiler.move_down();
         self.profiler.move_up();
-    }
-
-    fn is_terminal(&self, game: GoGame) -> Option<bool> {
-        // If both players pass sequentially, the game ends and
-        // the player to pass second loses.
-        if game.pass_state == PassState::PassedTwice {
-            Some(game.current_player == self.player)
-        // If the defender has unconditionally alive blocks, the defender wins
-        } else if !game
-            .get_board()
-            .unconditionally_alive_blocks_for_player(self.defender())
-            .is_empty()
-        {
-            Some(self.defender() == self.player)
-        // If the defender doesn't have any space to create eyes, the attacker wins
-        } else if self.is_defender_dead(game.get_board()) {
-            Some(self.attacker == self.player)
-        // Otherwise, the result is a non-terminal node
-        } else {
-            None
-        }
-    }
-
-    /// A conservative estimate on whether the group is dead.
-    /// true means it's definitely dead, false otherwise
-    fn is_defender_dead(&self, board: GoBoard) -> bool {
-        let attacker_alive = board
-            .out_of_bounds()
-            .expand_one()
-            .flood_fill(board.get_bitboard_for_player(self.attacker));
-
-        let maximum_living_shape = !attacker_alive & !board.out_of_bounds();
-
-        maximum_living_shape.interior().count() < 2
     }
 
     fn select_most_proving_node(&mut self) {
