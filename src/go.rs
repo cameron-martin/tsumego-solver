@@ -1,7 +1,7 @@
 mod benson;
 mod bit_board;
 mod sgf_conversion;
-pub use bit_board::{BitBoard, BoardPosition};
+pub use bit_board::{BitBoard, BitBoardPositionIterator, BoardPosition};
 use std::collections::hash_map::DefaultHasher;
 use std::fmt;
 use std::fmt::Debug;
@@ -255,6 +255,56 @@ pub enum MoveError {
     Ko,
 }
 
+pub struct MovesIterator {
+    game: GoGame,
+    remaining_positions: BitBoardPositionIterator,
+}
+
+impl Iterator for MovesIterator {
+    type Item = (GoGame, Move);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        while let Some(position) = self.remaining_positions.next() {
+            if let Ok(game) = self.game.play_placing_move(position) {
+                return Some((game, Move::Place(position)));
+            }
+        }
+
+        None
+    }
+}
+
+pub struct MovesIncPassIterator {
+    moves_iterator: MovesIterator,
+    passed: bool,
+}
+
+impl Iterator for MovesIncPassIterator {
+    type Item = (GoGame, Move);
+    fn next(&mut self) -> Option<Self::Item> {
+        if let Some(item) = self.moves_iterator.next() {
+            Some(item)
+        } else if !self.passed {
+            let item = (
+                self.moves_iterator.game.pass(),
+                match self.moves_iterator.game.pass_state {
+                    PassState::NoPass => Move::PassOnce,
+                    PassState::PassedOnce => Move::PassTwice,
+                    PassState::PassedTwice => {
+                        panic!("Cannot generate moves when the game is finished")
+                    }
+                },
+            );
+
+            self.passed = true;
+
+            Some(item)
+        } else {
+            None
+        }
+    }
+}
+
 impl GoGame {
     pub fn empty() -> GoGame {
         GoGame {
@@ -367,33 +417,20 @@ impl GoGame {
         }
     }
 
-    pub fn generate_moves(&self) -> Vec<(GoGame, Move)> {
-        let mut games = Vec::new();
-
+    pub fn generate_moves(&self) -> MovesIterator {
         let board = self.get_board();
 
-        for position in (!(board.white | board.black)).positions() {
-            if let Ok(game) = self.play_placing_move(position) {
-                games.push((game, Move::Place(position)));
-            }
+        MovesIterator {
+            game: *self,
+            remaining_positions: (!(board.white | board.black)).positions(),
         }
-
-        games
     }
 
-    pub fn generate_moves_including_pass(&self) -> Vec<(GoGame, Move)> {
-        let mut games = self.generate_moves();
-
-        games.push((
-            self.pass(),
-            match self.pass_state {
-                PassState::NoPass => Move::PassOnce,
-                PassState::PassedOnce => Move::PassTwice,
-                PassState::PassedTwice => panic!("Cannot generate moves when the game is finished"),
-            },
-        ));
-
-        games
+    pub fn generate_moves_including_pass(&self) -> MovesIncPassIterator {
+        MovesIncPassIterator {
+            moves_iterator: self.generate_moves(),
+            passed: false,
+        }
     }
 }
 
@@ -532,7 +569,7 @@ mod tests {
         let game = GoGame::from_sgf(include_str!("test_sgfs/puzzles/true_simple1.sgf"));
         let moves = game.generate_moves();
 
-        assert_eq!(moves.len(), 5);
+        assert_eq!(moves.collect::<Vec<_>>().len(), 5);
     }
 
     #[test]
