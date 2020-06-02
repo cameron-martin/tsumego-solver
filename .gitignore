@@ -2,3 +2,4 @@
 **/*.rs.bk
 /generated_puzzles
 *.pending-snap
+*.snap.new
