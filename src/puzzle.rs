@@ -519,7 +519,9 @@ mod tests {
         let mut output = String::new();
         let mut count = 1;
         for (node, depth) in puzzle.profiler.expanded_list {
-            output.push_str(format!("{}, depth {}:\n{}\n\n", count, depth, node.get_board()).borrow());
+            output.push_str(
+                format!("{}, depth {}:\n{}\n\n", count, depth, node.get_board()).borrow(),
+            );
             count += 1;
         }
 
