@@ -68,6 +68,34 @@ fn unconditional_life(c: &mut Criterion) {
 }
 
 fn solving_puzzles(c: &mut Criterion) {
+    let mut ultra_simple = c.benchmark_group("solving puzzles (ultrasimple)");
+
+    ultra_simple.bench_function("1", |b| {
+        b.iter_batched(
+            || {
+                Puzzle::<NoProfile>::from_sgf(include_str!(
+                    "../src/test_sgfs/puzzles/true_ultrasimple1.sgf"
+                ))
+            },
+            |mut puzzle| puzzle.solve(),
+            BatchSize::SmallInput,
+        )
+    });
+
+    ultra_simple.bench_function("2", |b| {
+        b.iter_batched(
+            || {
+                Puzzle::<NoProfile>::from_sgf(include_str!(
+                    "../src/test_sgfs/puzzles/true_ultrasimple2.sgf"
+                ))
+            },
+            |mut puzzle| puzzle.solve(),
+            BatchSize::SmallInput,
+        )
+    });
+
+    ultra_simple.finish();
+
     let mut simple = c.benchmark_group("solving puzzles (simple)");
 
     simple.bench_function("1", |b| {
