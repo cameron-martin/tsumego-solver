@@ -71,15 +71,15 @@ impl<P: Profiler> Puzzle<P> {
         Self::new(GoGame::from_sgf(sgf_string))
     }
 
-    pub fn solve(&self) -> bool {
+    pub fn solve(&mut self) -> bool {
         self.solve_with_controller(&NoAbortController).unwrap()
     }
 
-    pub fn solve_with_timeout(&self, timeout: Duration) -> Option<bool> {
+    pub fn solve_with_timeout(&mut self, timeout: Duration) -> Option<bool> {
         self.solve_with_controller(&TimeoutAbortController::duration(timeout))
     }
 
-    fn solve_with_controller<C: AbortController>(&self, controller: &C) -> Option<bool> {
+    fn solve_with_controller<C: AbortController>(&mut self, controller: &C) -> Option<bool> {
         let mut parents = HashSet::new();
         parents.insert(self.game);
 
@@ -88,8 +88,8 @@ impl<P: Profiler> Puzzle<P> {
         loop {
             let result = self.negamax(
                 self.game,
-                -std::i8::MAX,
-                std::i8::MAX,
+                -1,
+                1,
                 depth,
                 1,
                 controller,
@@ -101,14 +101,15 @@ impl<P: Profiler> Puzzle<P> {
             }
 
             depth += 1;
+            self.profiler.move_down();
         }
     }
 
     fn negamax<C: AbortController>(
-        &self,
+        &mut self,
         node: GoGame,
-        a: i8,
-        b: i8,
+        alpha: i8,
+        beta: i8,
         depth: u8,
         is_maximising_player: i8,
         controller: &C,
@@ -118,6 +119,8 @@ impl<P: Profiler> Puzzle<P> {
             return None;
         }
 
+        self.profiler.visit_node();
+
         if depth == 0 {
             return Some(0);
         }
@@ -126,31 +129,31 @@ impl<P: Profiler> Puzzle<P> {
             return Some(is_maximising_player * if value { 1 } else { -1 });
         }
 
-        let mut value = -std::i8::MAX;
+        let mut m = alpha;
         for (child, _move) in node.generate_moves_including_pass() {
             if parents.contains(&child) {
                 continue;
             }
             parents.insert(child);
-            value = cmp::max(
-                value,
-                -self.negamax(
-                    child,
-                    -b,
-                    -a,
-                    depth - 1,
-                    -is_maximising_player,
-                    controller,
-                    parents,
-                )?,
-            );
+
+            let t = -self.negamax(
+                child,
+                -beta,
+                -alpha,
+                depth - 1,
+                -is_maximising_player,
+                controller,
+                parents,
+            )?;
+            if t > m {
+                m = t;
+            }
             parents.remove(&child);
-            let a = cmp::max(a, value);
-            if a >= b {
+            if m >= beta {
                 break;
             }
         }
-        return Some(value);
+        return Some(m);
     }
 
     // fn root_node(&self) -> AndOrNode {
@@ -185,8 +188,8 @@ mod tests {
 
         assert!(won);
         // assert_eq!(puzzle.first_move(), Move::Place(BoardPosition::new(4, 0)));
-        assert_display_snapshot!(puzzle.profiler.node_count, @"542");
-        assert_display_snapshot!(puzzle.profiler.max_depth, @"7");
+        assert_display_snapshot!(puzzle.profiler.visited_nodes, @"8573");
+        assert_display_snapshot!(puzzle.profiler.max_depth, @"6");
     }
 
     #[test]
@@ -199,8 +202,8 @@ mod tests {
 
         assert!(won);
         // assert_eq!(puzzle.first_move(), Move::Place(BoardPosition::new(2, 1)));
-        assert_display_snapshot!(puzzle.profiler.node_count, @"5453");
-        assert_display_snapshot!(puzzle.profiler.max_depth, @"15");
+        assert_display_snapshot!(puzzle.profiler.visited_nodes, @"224738");
+        assert_display_snapshot!(puzzle.profiler.max_depth, @"10");
     }
 
     #[test]
@@ -213,7 +216,7 @@ mod tests {
 
         assert!(won);
         // assert_eq!(puzzle.first_move(), Move::Place(BoardPosition::new(5, 0)));
-        assert_display_snapshot!(puzzle.profiler.node_count, @"219");
+        assert_display_snapshot!(puzzle.profiler.visited_nodes, @"6147");
         assert_display_snapshot!(puzzle.profiler.max_depth, @"9");
     }
 
@@ -227,23 +230,23 @@ mod tests {
 
         assert!(won);
         // assert_eq!(puzzle.first_move(), Move::Place(BoardPosition::new(7, 0)));
-        assert_display_snapshot!(puzzle.profiler.node_count, @"59145");
-        assert_display_snapshot!(puzzle.profiler.max_depth, @"18");
+        assert_display_snapshot!(puzzle.profiler.visited_nodes, @"13403615");
+        assert_display_snapshot!(puzzle.profiler.max_depth, @"8");
     }
 
-    #[test]
-    fn true_medium1() {
-        let tsumego = GoGame::from_sgf(include_str!("test_sgfs/puzzles/true_medium1.sgf"));
+    // #[test]
+    // fn true_medium1() {
+    //     let tsumego = GoGame::from_sgf(include_str!("test_sgfs/puzzles/true_medium1.sgf"));
 
-        let mut puzzle = Puzzle::<Profile>::new(tsumego);
+    //     let mut puzzle = Puzzle::<Profile>::new(tsumego);
 
-        let won = puzzle.solve();
+    //     let won = puzzle.solve();
 
-        assert!(won);
-        // assert_eq!(puzzle.first_move(), Move::Place(BoardPosition::new(14, 2)));
-        assert_display_snapshot!(puzzle.profiler.node_count, @"345725");
-        assert_display_snapshot!(puzzle.profiler.max_depth, @"29");
-    }
+    //     assert!(won);
+    //     // assert_eq!(puzzle.first_move(), Move::Place(BoardPosition::new(14, 2)));
+    //     assert_display_snapshot!(puzzle.profiler.visited_nodes, @"345725");
+    //     assert_display_snapshot!(puzzle.profiler.max_depth, @"29");
+    // }
 
     #[test]
     fn true_ultrasimple1() {
@@ -255,7 +258,7 @@ mod tests {
 
         assert!(won);
         // assert_eq!(puzzle.first_move(), Move::Place(BoardPosition::new(1, 0)));
-        assert_display_snapshot!(puzzle.profiler.node_count, @"5");
+        assert_display_snapshot!(puzzle.profiler.visited_nodes, @"11");
         assert_display_snapshot!(puzzle.profiler.max_depth, @"2");
     }
 
@@ -269,26 +272,26 @@ mod tests {
 
         assert!(won);
         // assert_eq!(puzzle.first_move(), Move::Place(BoardPosition::new(1, 0)));
-        assert_display_snapshot!(puzzle.profiler.node_count, @"173");
+        assert_display_snapshot!(puzzle.profiler.visited_nodes, @"3269");
         assert_display_snapshot!(puzzle.profiler.max_depth, @"9");
     }
 
-    #[test]
-    fn trace_expanded_nodes() {
-        let tsumego = GoGame::from_sgf(include_str!("test_sgfs/puzzles/true_ultrasimple2.sgf"));
-        let mut puzzle = Puzzle::<Profile>::new(tsumego);
+    // #[test]
+    // fn trace_expanded_nodes() {
+    //     let tsumego = GoGame::from_sgf(include_str!("test_sgfs/puzzles/true_ultrasimple2.sgf"));
+    //     let mut puzzle = Puzzle::<Profile>::new(tsumego);
 
-        puzzle.solve();
+    //     puzzle.solve();
 
-        let mut output = String::new();
-        let mut count = 1;
-        for (node, depth) in puzzle.profiler.expanded_list {
-            output.push_str(
-                format!("{}, depth {}:\n{}\n\n", count, depth, node.get_board()).borrow(),
-            );
-            count += 1;
-        }
+    //     let mut output = String::new();
+    //     let mut count = 1;
+    //     for (node, depth) in puzzle.profiler.expanded_list {
+    //         output.push_str(
+    //             format!("{}, depth {}:\n{}\n\n", count, depth, node.get_board()).borrow(),
+    //         );
+    //         count += 1;
+    //     }
 
-        assert_snapshot!(output);
-    }
+    //     assert_snapshot!(output);
+    // }
 }
