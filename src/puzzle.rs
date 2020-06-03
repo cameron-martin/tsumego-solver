@@ -1,11 +1,11 @@
 mod profiler;
 mod terminal_detection;
 
-use crate::go::{GoGame, GoPlayer};
+use crate::go::{GoGame, GoPlayer, GoBoard};
 pub use profiler::{NoProfile, Profile, Profiler};
 use std::{
     cmp,
-    collections::HashSet,
+    collections::{HashMap, HashSet},
     time::{Duration, Instant},
 };
 
@@ -85,6 +85,8 @@ impl<P: Profiler> Puzzle<P> {
 
         let mut depth = 1;
 
+        let mut tt = HashMap::new();
+
         loop {
             let result = self.negamax(
                 self.game,
@@ -94,6 +96,7 @@ impl<P: Profiler> Puzzle<P> {
                 1,
                 controller,
                 &mut parents,
+                &mut tt,
             )?;
 
             if result != 0 {
@@ -114,6 +117,7 @@ impl<P: Profiler> Puzzle<P> {
         is_maximising_player: i8,
         controller: &C,
         parents: &mut HashSet<GoGame>,
+        tt: &mut HashMap<GoBoard, i8>,
     ) -> Option<i8> {
         if controller.should_abort() {
             return None;
@@ -123,6 +127,10 @@ impl<P: Profiler> Puzzle<P> {
 
         if depth == 0 {
             return Some(0);
+        }
+
+        if let Some(value) = tt.get(&node.get_board()) {
+            return Some(is_maximising_player * value);
         }
 
         if let Some(value) = terminal_detection::is_terminal(node, self.player, self.attacker) {
@@ -144,6 +152,7 @@ impl<P: Profiler> Puzzle<P> {
                 -is_maximising_player,
                 controller,
                 parents,
+                tt,
             )?;
             if t > m {
                 m = t;
@@ -153,6 +162,10 @@ impl<P: Profiler> Puzzle<P> {
                 break;
             }
         }
+        if m != 0 {
+            tt.insert(node.get_board(), is_maximising_player * m);
+        }
+
         return Some(m);
     }
 
