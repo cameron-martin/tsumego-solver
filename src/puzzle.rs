@@ -129,7 +129,9 @@ impl<P: Profiler> Puzzle<P> {
             return Some(is_maximising_player * if value { 1 } else { -1 });
         }
 
-        let mut m = alpha;
+        let mut alpha = alpha;
+
+        let mut m = -1;
         for (child, _move) in node.generate_moves_including_pass() {
             if parents.contains(&child) {
                 continue;
@@ -152,6 +154,8 @@ impl<P: Profiler> Puzzle<P> {
             if m >= beta {
                 break;
             }
+            
+            alpha = cmp::max(alpha, m);
         }
 
         return Some(m);
@@ -189,7 +193,7 @@ mod tests {
 
         assert!(won);
         // assert_eq!(puzzle.first_move(), Move::Place(BoardPosition::new(4, 0)));
-        assert_display_snapshot!(puzzle.profiler.visited_nodes, @"8573");
+        assert_display_snapshot!(puzzle.profiler.visited_nodes, @"979");
         assert_display_snapshot!(puzzle.profiler.max_depth, @"6");
     }
 
@@ -203,7 +207,7 @@ mod tests {
 
         assert!(won);
         // assert_eq!(puzzle.first_move(), Move::Place(BoardPosition::new(2, 1)));
-        assert_display_snapshot!(puzzle.profiler.visited_nodes, @"224738");
+        assert_display_snapshot!(puzzle.profiler.visited_nodes, @"13263");
         assert_display_snapshot!(puzzle.profiler.max_depth, @"10");
     }
 
@@ -217,7 +221,7 @@ mod tests {
 
         assert!(won);
         // assert_eq!(puzzle.first_move(), Move::Place(BoardPosition::new(5, 0)));
-        assert_display_snapshot!(puzzle.profiler.visited_nodes, @"6147");
+        assert_display_snapshot!(puzzle.profiler.visited_nodes, @"2075");
         assert_display_snapshot!(puzzle.profiler.max_depth, @"9");
     }
 
@@ -231,7 +235,7 @@ mod tests {
 
         assert!(won);
         // assert_eq!(puzzle.first_move(), Move::Place(BoardPosition::new(7, 0)));
-        assert_display_snapshot!(puzzle.profiler.visited_nodes, @"13403615");
+        assert_display_snapshot!(puzzle.profiler.visited_nodes, @"50768");
         assert_display_snapshot!(puzzle.profiler.max_depth, @"8");
     }
 
@@ -273,7 +277,7 @@ mod tests {
 
         assert!(won);
         // assert_eq!(puzzle.first_move(), Move::Place(BoardPosition::new(1, 0)));
-        assert_display_snapshot!(puzzle.profiler.visited_nodes, @"3269");
+        assert_display_snapshot!(puzzle.profiler.visited_nodes, @"1499");
         assert_display_snapshot!(puzzle.profiler.max_depth, @"9");
     }
 
