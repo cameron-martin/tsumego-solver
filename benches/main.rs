@@ -73,11 +73,11 @@ fn solving_puzzles(c: &mut Criterion) {
     ultra_simple.bench_function("1", |b| {
         b.iter_batched(
             || {
-                Puzzle::<NoProfile>::from_sgf(include_str!(
+                Puzzle::from_sgf(include_str!(
                     "../src/test_sgfs/puzzles/true_ultrasimple1.sgf"
                 ))
             },
-            |mut puzzle| puzzle.solve(),
+            |mut puzzle| puzzle.solve::<NoProfile>(),
             BatchSize::SmallInput,
         )
     });
@@ -85,11 +85,11 @@ fn solving_puzzles(c: &mut Criterion) {
     ultra_simple.bench_function("2", |b| {
         b.iter_batched(
             || {
-                Puzzle::<NoProfile>::from_sgf(include_str!(
+                Puzzle::from_sgf(include_str!(
                     "../src/test_sgfs/puzzles/true_ultrasimple2.sgf"
                 ))
             },
-            |mut puzzle| puzzle.solve(),
+            |mut puzzle| puzzle.solve::<NoProfile>(),
             BatchSize::SmallInput,
         )
     });
@@ -100,36 +100,24 @@ fn solving_puzzles(c: &mut Criterion) {
 
     simple.bench_function("1", |b| {
         b.iter_batched(
-            || {
-                Puzzle::<NoProfile>::from_sgf(include_str!(
-                    "../src/test_sgfs/puzzles/true_simple1.sgf"
-                ))
-            },
-            |mut puzzle| puzzle.solve(),
+            || Puzzle::from_sgf(include_str!("../src/test_sgfs/puzzles/true_simple1.sgf")),
+            |mut puzzle| puzzle.solve::<NoProfile>(),
             BatchSize::SmallInput,
         )
     });
 
     simple.bench_function("2", |b| {
         b.iter_batched(
-            || {
-                Puzzle::<NoProfile>::from_sgf(include_str!(
-                    "../src/test_sgfs/puzzles/true_simple2.sgf"
-                ))
-            },
-            |mut puzzle| puzzle.solve(),
+            || Puzzle::from_sgf(include_str!("../src/test_sgfs/puzzles/true_simple2.sgf")),
+            |mut puzzle| puzzle.solve::<NoProfile>(),
             BatchSize::SmallInput,
         )
     });
 
     simple.bench_function("3", |b| {
         b.iter_batched(
-            || {
-                Puzzle::<NoProfile>::from_sgf(include_str!(
-                    "../src/test_sgfs/puzzles/true_simple3.sgf"
-                ))
-            },
-            |mut puzzle| puzzle.solve(),
+            || Puzzle::from_sgf(include_str!("../src/test_sgfs/puzzles/true_simple3.sgf")),
+            |mut puzzle| puzzle.solve::<NoProfile>(),
             BatchSize::SmallInput,
         )
     });
@@ -141,12 +129,8 @@ fn solving_puzzles(c: &mut Criterion) {
 
     medium.bench_function("1", |b| {
         b.iter_batched(
-            || {
-                Puzzle::<NoProfile>::from_sgf(include_str!(
-                    "../src/test_sgfs/puzzles/true_medium1.sgf"
-                ))
-            },
-            |mut puzzle| puzzle.solve(),
+            || Puzzle::from_sgf(include_str!("../src/test_sgfs/puzzles/true_medium1.sgf")),
+            |mut puzzle| puzzle.solve::<NoProfile>(),
             BatchSize::SmallInput,
         )
     });
