@@ -1,4 +1,3 @@
-mod explore;
 mod generate;
 
 use clap::{App, AppSettings, Arg, SubCommand};
@@ -7,18 +6,6 @@ use std::path::Path;
 
 fn main() -> io::Result<()> {
     let matches = App::new("Tsumego Solver")
-        .subcommand(
-            SubCommand::with_name("explore")
-                .about("Explore the game tree of a single puzzle")
-                .arg(
-                    Arg::with_name("file")
-                        .help("The SGF file to load")
-                        .short("f")
-                        .long("file")
-                        .required(true)
-                        .takes_value(true),
-                ),
-        )
         .subcommand(
             SubCommand::with_name("generate")
                 .about("Generate puzzles and output them as SGF files")
@@ -42,13 +29,6 @@ fn main() -> io::Result<()> {
         .get_matches();
 
     match matches.subcommand() {
-        ("explore", Some(matches)) => {
-            let filename = matches.value_of("file").unwrap();
-
-            explore::run(filename);
-
-            Ok(())
-        }
         ("generate", Some(matches)) => {
             let output_directory = matches.value_of("out").unwrap();
             let thread_count = matches.value_of("threads").unwrap();

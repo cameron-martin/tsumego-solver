@@ -36,7 +36,7 @@ impl<'a, C: AbortController, P: Profiler> SolvingIteration<'a, C, P> {
 
     pub fn principle_variation(mut self) -> Vec<Move> {
         self.variations.truncate(self.max_depth as usize);
-        
+
         self.variations
     }
 
