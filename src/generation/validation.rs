@@ -12,7 +12,7 @@ pub fn validate_candidate<P: Profiler>(candidate: GoBoard, timeout: Duration) ->
         let mut puzzle = Puzzle::<P>::new(GoGame::from_board(candidate, *first_player));
 
         match puzzle.solve_with_timeout(timeout) {
-            Some(won) => won,
+            Some(solution) => solution.won,
             None => false,
         }
     })

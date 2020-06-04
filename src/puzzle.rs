@@ -1,11 +1,13 @@
 mod profiler;
+mod solution;
 mod terminal_detection;
 
-use crate::go::{GoGame, GoPlayer, GoBoard};
+use crate::go::{BoardPosition, GoGame, GoPlayer, Move};
 pub use profiler::{NoProfile, Profile, Profiler};
+use solution::Solution;
 use std::{
-    cmp,
-    collections::{HashMap, HashSet},
+    collections::HashSet,
+    iter,
     time::{Duration, Instant},
 };
 
@@ -71,36 +73,48 @@ impl<P: Profiler> Puzzle<P> {
         Self::new(GoGame::from_sgf(sgf_string))
     }
 
-    pub fn solve(&mut self) -> bool {
+    pub fn solve(&mut self) -> Solution {
         self.solve_with_controller(&NoAbortController).unwrap()
     }
 
-    pub fn solve_with_timeout(&mut self, timeout: Duration) -> Option<bool> {
+    pub fn solve_with_timeout(&mut self, timeout: Duration) -> Option<Solution> {
         self.solve_with_controller(&TimeoutAbortController::duration(timeout))
     }
 
-    fn solve_with_controller<C: AbortController>(&mut self, controller: &C) -> Option<bool> {
+    fn solve_with_controller<C: AbortController>(&mut self, controller: &C) -> Option<Solution> {
         let mut parents = HashSet::new();
         parents.insert(self.game);
 
-        let mut depth = 1;
+        let mut max_depth: u8 = 1;
 
         loop {
+            let mut variations = iter::repeat(Move::Place(BoardPosition::new(0, 0)))
+                .take((max_depth as usize * (max_depth as usize + 1)) / 2)
+                .collect();
+
             let result = self.negamax(
                 self.game,
-                -1,
-                1,
-                depth,
+                -std::i8::MAX,
+                std::i8::MAX,
+                0,
+                max_depth,
                 1,
                 controller,
                 &mut parents,
+                &mut variations,
+                0,
             )?;
 
             if result != 0 {
-                return Some(result > 0);
+                variations.truncate(max_depth as usize);
+
+                return Some(Solution {
+                    won: result > 0,
+                    principle_variation: variations,
+                });
             }
 
-            depth += 1;
+            max_depth += 1;
             self.profiler.move_down();
         }
     }
@@ -111,9 +125,12 @@ impl<P: Profiler> Puzzle<P> {
         alpha: i8,
         beta: i8,
         depth: u8,
+        max_depth: u8,
         is_maximising_player: i8,
         controller: &C,
         parents: &mut HashSet<GoGame>,
+        variations: &mut Vec<Move>,
+        variations_index: usize,
     ) -> Option<i8> {
         if controller.should_abort() {
             return None;
@@ -121,18 +138,28 @@ impl<P: Profiler> Puzzle<P> {
 
         self.profiler.visit_node();
 
-        if depth == 0 {
+        if let Some(value) = terminal_detection::is_terminal(node, self.player, self.attacker) {
+            return Some(
+                is_maximising_player
+                    * if value {
+                        std::i8::MAX - depth as i8
+                    } else {
+                        -(std::i8::MAX - depth as i8)
+                    },
+            );
+        }
+
+        if depth == max_depth {
             return Some(0);
         }
 
-        if let Some(value) = terminal_detection::is_terminal(node, self.player, self.attacker) {
-            return Some(is_maximising_player * if value { 1 } else { -1 });
-        }
-
         let mut alpha = alpha;
+        let this_variation_size = (max_depth - depth) as usize;
+        let child_variation_size = this_variation_size - 1;
+        let child_variations_index = variations_index + this_variation_size;
 
-        let mut m = -1;
-        for (child, _move) in node.generate_moves_including_pass() {
+        let mut m = -std::i8::MAX;
+        for (child, go_move) in node.generate_moves_including_pass() {
             if parents.contains(&child) {
                 continue;
             }
@@ -142,10 +169,13 @@ impl<P: Profiler> Puzzle<P> {
                 child,
                 -beta,
                 -alpha,
-                depth - 1,
+                depth + 1,
+                max_depth,
                 -is_maximising_player,
                 controller,
                 parents,
+                variations,
+                child_variations_index,
             )?;
             if t > m {
                 m = t;
@@ -154,8 +184,20 @@ impl<P: Profiler> Puzzle<P> {
             if m >= beta {
                 break;
             }
-            
-            alpha = cmp::max(alpha, m);
+
+            if m > alpha {
+                alpha = m;
+
+                // Update principal variation
+                variations[variations_index] = go_move;
+
+                let (dst_arr, src_arr) = variations
+                    [variations_index + 1..child_variations_index + child_variation_size]
+                    .split_at_mut(child_variation_size);
+                for (dst, src) in dst_arr.iter_mut().zip(src_arr) {
+                    *dst = *src;
+                }
+            }
         }
 
         return Some(m);
@@ -179,9 +221,36 @@ impl<P: Profiler> Puzzle<P> {
 mod tests {
     use super::*;
     use crate::go::{BoardPosition, GoGame};
-    use insta::{assert_display_snapshot, assert_snapshot};
+    use insta::{assert_debug_snapshot, assert_display_snapshot, assert_snapshot};
     use profiler::Profile;
     use std::borrow::Borrow;
+
+    fn show_principle_variation<T: Profiler>(puzzle: &Puzzle<T>, solution: &Solution) -> String {
+        let games = solution
+            .principle_variation
+            .iter()
+            .scan(puzzle.game, |state, &go_move| {
+                *state = state.play_move(go_move).unwrap();
+
+                Some((*state, go_move))
+            });
+
+        let mut output = String::new();
+        output.push_str(format!("{}\n\n", puzzle.game.get_board()).borrow());
+        for (game, go_move) in games {
+            output.push_str(
+                format!(
+                    "{}: {}\n{}\n\n",
+                    game.current_player.flip(),
+                    go_move,
+                    game.get_board()
+                )
+                .borrow(),
+            );
+        }
+
+        output
+    }
 
     #[test]
     fn true_simple1() {
@@ -189,12 +258,12 @@ mod tests {
 
         let mut puzzle = Puzzle::<Profile>::new(tsumego);
 
-        let won = puzzle.solve();
+        let solution = puzzle.solve();
 
-        assert!(won);
-        // assert_eq!(puzzle.first_move(), Move::Place(BoardPosition::new(4, 0)));
-        assert_display_snapshot!(puzzle.profiler.visited_nodes, @"979");
-        assert_display_snapshot!(puzzle.profiler.max_depth, @"6");
+        assert!(solution.won);
+        assert_display_snapshot!(puzzle.profiler.visited_nodes, @"644");
+        assert_display_snapshot!(puzzle.profiler.max_depth, @"5");
+        assert_snapshot!(show_principle_variation(&puzzle, &solution));
     }
 
     #[test]
@@ -203,12 +272,12 @@ mod tests {
 
         let mut puzzle = Puzzle::<Profile>::new(tsumego);
 
-        let won = puzzle.solve();
+        let solution = puzzle.solve();
 
-        assert!(won);
-        // assert_eq!(puzzle.first_move(), Move::Place(BoardPosition::new(2, 1)));
-        assert_display_snapshot!(puzzle.profiler.visited_nodes, @"13263");
-        assert_display_snapshot!(puzzle.profiler.max_depth, @"10");
+        assert!(solution.won);
+        assert_display_snapshot!(puzzle.profiler.visited_nodes, @"7295");
+        assert_display_snapshot!(puzzle.profiler.max_depth, @"9");
+        assert_snapshot!(show_principle_variation(&puzzle, &solution));
     }
 
     #[test]
@@ -217,12 +286,12 @@ mod tests {
 
         let mut puzzle = Puzzle::<Profile>::new(tsumego);
 
-        let won = puzzle.solve();
+        let solution = puzzle.solve();
 
-        assert!(won);
-        // assert_eq!(puzzle.first_move(), Move::Place(BoardPosition::new(5, 0)));
-        assert_display_snapshot!(puzzle.profiler.visited_nodes, @"2075");
-        assert_display_snapshot!(puzzle.profiler.max_depth, @"9");
+        assert!(solution.won);
+        assert_display_snapshot!(puzzle.profiler.visited_nodes, @"2946");
+        assert_display_snapshot!(puzzle.profiler.max_depth, @"8");
+        assert_snapshot!(show_principle_variation(&puzzle, &solution));
     }
 
     #[test]
@@ -231,12 +300,12 @@ mod tests {
 
         let mut puzzle = Puzzle::<Profile>::new(tsumego);
 
-        let won = puzzle.solve();
+        let solution = puzzle.solve();
 
-        assert!(won);
-        // assert_eq!(puzzle.first_move(), Move::Place(BoardPosition::new(7, 0)));
-        assert_display_snapshot!(puzzle.profiler.visited_nodes, @"50768");
-        assert_display_snapshot!(puzzle.profiler.max_depth, @"8");
+        assert!(solution.won);
+        assert_display_snapshot!(puzzle.profiler.visited_nodes, @"31143");
+        assert_display_snapshot!(puzzle.profiler.max_depth, @"7");
+        assert_snapshot!(show_principle_variation(&puzzle, &solution));
     }
 
     // #[test]
@@ -245,9 +314,9 @@ mod tests {
 
     //     let mut puzzle = Puzzle::<Profile>::new(tsumego);
 
-    //     let won = puzzle.solve();
+    //     let solution = puzzle.solve();
 
-    //     assert!(won);
+    //     assert!(solution.won);
     //     // assert_eq!(puzzle.first_move(), Move::Place(BoardPosition::new(14, 2)));
     //     assert_display_snapshot!(puzzle.profiler.visited_nodes, @"345725");
     //     assert_display_snapshot!(puzzle.profiler.max_depth, @"29");
@@ -259,12 +328,12 @@ mod tests {
 
         let mut puzzle = Puzzle::<Profile>::new(tsumego);
 
-        let won = puzzle.solve();
+        let solution = puzzle.solve();
 
-        assert!(won);
-        // assert_eq!(puzzle.first_move(), Move::Place(BoardPosition::new(1, 0)));
-        assert_display_snapshot!(puzzle.profiler.visited_nodes, @"11");
-        assert_display_snapshot!(puzzle.profiler.max_depth, @"2");
+        assert!(solution.won);
+        assert_display_snapshot!(puzzle.profiler.visited_nodes, @"5");
+        assert_display_snapshot!(puzzle.profiler.max_depth, @"1");
+        assert_snapshot!(show_principle_variation(&puzzle, &solution));
     }
 
     #[test]
@@ -273,30 +342,11 @@ mod tests {
 
         let mut puzzle = Puzzle::<Profile>::new(tsumego);
 
-        let won = puzzle.solve();
+        let solution = puzzle.solve();
 
-        assert!(won);
-        // assert_eq!(puzzle.first_move(), Move::Place(BoardPosition::new(1, 0)));
-        assert_display_snapshot!(puzzle.profiler.visited_nodes, @"1499");
-        assert_display_snapshot!(puzzle.profiler.max_depth, @"9");
+        assert!(solution.won);
+        assert_display_snapshot!(puzzle.profiler.visited_nodes, @"2170");
+        assert_display_snapshot!(puzzle.profiler.max_depth, @"8");
+        assert_snapshot!(show_principle_variation(&puzzle, &solution));
     }
-
-    // #[test]
-    // fn trace_expanded_nodes() {
-    //     let tsumego = GoGame::from_sgf(include_str!("test_sgfs/puzzles/true_ultrasimple2.sgf"));
-    //     let mut puzzle = Puzzle::<Profile>::new(tsumego);
-
-    //     puzzle.solve();
-
-    //     let mut output = String::new();
-    //     let mut count = 1;
-    //     for (node, depth) in puzzle.profiler.expanded_list {
-    //         output.push_str(
-    //             format!("{}, depth {}:\n{}\n\n", count, depth, node.get_board()).borrow(),
-    //         );
-    //         count += 1;
-    //     }
-
-    //     assert_snapshot!(output);
-    // }
 }
