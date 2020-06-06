@@ -91,7 +91,7 @@ impl Display for GoBoard {
 }
 
 impl GoBoard {
-    fn empty() -> GoBoard {
+    pub fn empty() -> GoBoard {
         GoBoard {
             white: BitBoard::empty(),
             black: BitBoard::empty(),
@@ -106,7 +106,7 @@ impl GoBoard {
     }
 
     /// Empty cells, including out of bounds
-    fn empty_cells(&self) -> BitBoard {
+    pub fn empty_cells(&self) -> BitBoard {
         !(self.white ^ self.black)
     }
 
@@ -114,7 +114,7 @@ impl GoBoard {
         self.white & self.black
     }
 
-    fn set_cell(&mut self, position: BoardPosition, cell: BoardCell) {
+    pub fn set_cell(&mut self, position: BoardPosition, cell: BoardCell) {
         let mask = BitBoard::singleton(position);
 
         match cell {
@@ -217,7 +217,7 @@ impl GoBoard {
         !(BitBoard::singleton(position) & self.out_of_bounds()).is_empty()
     }
 
-    fn set_out_of_bounds(&mut self, out_of_bounds: BitBoard) {
+    pub fn set_out_of_bounds(&mut self, out_of_bounds: BitBoard) {
         let prev_out_of_bounds = self.out_of_bounds();
         self.white = (self.white & !prev_out_of_bounds) | out_of_bounds;
         self.black = (self.black & !prev_out_of_bounds) | out_of_bounds;

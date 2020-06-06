@@ -1,0 +1,10 @@
+file = { SOI ~ file_header ~ puzzle+ ~ EOI }
+file_header = { ( !"$" ~ ANY )+ }
+puzzle = { puzzle_header ~ puzzle_definition ~ non_empty_line* ~ NEWLINE }
+puzzle_header = { "$ P" ~ ASCII_DIGIT+ ~ NEWLINE }
+puzzle_definition = { ( stone | line_continuation )+ ~ ( alive_chain | line_continuation )* ~ NEWLINE }
+stone = { ( "A" | "?" ) ~ location }
+alive_chain = { "[" ~ location ~ "]" }
+location = { ASCII_ALPHA_UPPER ~ ASCII_ALPHA_UPPER }
+non_empty_line = { ( !NEWLINE ~ ANY )+ ~ NEWLINE }
+line_continuation = { "\\" ~ NEWLINE }
