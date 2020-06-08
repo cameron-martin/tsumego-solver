@@ -14,9 +14,9 @@ use std::time::Duration;
 
 #[derive(Copy, Clone)]
 pub struct Puzzle {
-    game: GoGame,
-    player: GoPlayer,
-    attacker: GoPlayer,
+    pub game: GoGame,
+    pub player: GoPlayer,
+    pub attacker: GoPlayer,
 }
 
 impl Puzzle {

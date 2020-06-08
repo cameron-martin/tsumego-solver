@@ -11,6 +11,8 @@ sgf-parser = "2.4.0"
 cursive = { version = "0.14", default-features = false, features = ["crossterm-backend"] }
 clap = "2.33.0"
 rand = "0.7"
+pest = "2.1"
+pest_derive = "2.1"
 
 [dev-dependencies]
 criterion = "0.3.1"
@@ -28,6 +30,10 @@ bench = false
 
 [[bench]]
 name = "main"
+harness = false
+
+[[bench]]
+name = "gotools"
 harness = false
 
 [profile.release]
