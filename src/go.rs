@@ -33,7 +33,7 @@ pub enum BoardCell {
     Occupied(GoPlayer),
 }
 
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 pub enum GoPlayer {
     Black,
     White,
@@ -62,7 +62,7 @@ impl Display for GoPlayer {
 }
 
 // Being set in both black and white denotes "out of bounds"
-#[derive(PartialEq, Clone, Copy, Debug, Hash)]
+#[derive(PartialEq, Clone, Copy, Debug, Eq, Hash)]
 pub struct GoBoard {
     white: BitBoard,
     black: BitBoard,
@@ -91,7 +91,7 @@ impl Display for GoBoard {
 }
 
 impl GoBoard {
-    fn empty() -> GoBoard {
+    pub fn empty() -> GoBoard {
         GoBoard {
             white: BitBoard::empty(),
             black: BitBoard::empty(),
@@ -106,7 +106,7 @@ impl GoBoard {
     }
 
     /// Empty cells, including out of bounds
-    fn empty_cells(&self) -> BitBoard {
+    pub fn empty_cells(&self) -> BitBoard {
         !(self.white ^ self.black)
     }
 
@@ -114,7 +114,7 @@ impl GoBoard {
         self.white & self.black
     }
 
-    fn set_cell(&mut self, position: BoardPosition, cell: BoardCell) {
+    pub fn set_cell(&mut self, position: BoardPosition, cell: BoardCell) {
         let mask = BitBoard::singleton(position);
 
         match cell {
@@ -217,7 +217,7 @@ impl GoBoard {
         !(BitBoard::singleton(position) & self.out_of_bounds()).is_empty()
     }
 
-    fn set_out_of_bounds(&mut self, out_of_bounds: BitBoard) {
+    pub fn set_out_of_bounds(&mut self, out_of_bounds: BitBoard) {
         let prev_out_of_bounds = self.out_of_bounds();
         self.white = (self.white & !prev_out_of_bounds) | out_of_bounds;
         self.black = (self.black & !prev_out_of_bounds) | out_of_bounds;
@@ -231,12 +231,19 @@ impl GoBoard {
     }
 }
 
-#[derive(Debug, PartialEq, Clone, Copy)]
+#[derive(Debug, PartialEq, Clone, Copy, Eq, Hash)]
+pub enum PassState {
+    NoPass,
+    PassedOnce,
+    PassedTwice,
+}
+
+#[derive(Debug, PartialEq, Clone, Copy, Eq, Hash)]
 pub struct GoGame {
     ko_violations: BitBoard,
     board: GoBoard,
     pub current_player: GoPlayer,
-    pub last_move_pass: bool,
+    pub pass_state: PassState,
 }
 
 #[derive(Debug, PartialEq)]
@@ -254,7 +261,7 @@ impl GoGame {
             board: GoBoard::empty(),
             ko_violations: BitBoard::empty(),
             current_player: GoPlayer::Black,
-            last_move_pass: false,
+            pass_state: PassState::NoPass,
         }
     }
 
@@ -263,7 +270,7 @@ impl GoGame {
             board,
             ko_violations: BitBoard::empty(),
             current_player,
-            last_move_pass: false,
+            pass_state: PassState::NoPass,
         }
     }
 
@@ -343,7 +350,7 @@ impl GoGame {
             ko_violations,
             board: new_board,
             current_player: next_player,
-            last_move_pass: false,
+            pass_state: PassState::NoPass,
         })
     }
 
@@ -352,7 +359,11 @@ impl GoGame {
             board: self.board,
             ko_violations: BitBoard::empty(),
             current_player: self.current_player.flip(),
-            last_move_pass: true,
+            pass_state: match self.pass_state {
+                PassState::NoPass => PassState::PassedOnce,
+                PassState::PassedOnce => PassState::PassedTwice,
+                PassState::PassedTwice => panic!("Cannot pass when the game is finished"),
+            },
         }
     }
 
@@ -375,10 +386,10 @@ impl GoGame {
 
         games.push((
             self.pass(),
-            if self.last_move_pass {
-                Move::PassTwice
-            } else {
-                Move::PassOnce
+            match self.pass_state {
+                PassState::NoPass => Move::PassOnce,
+                PassState::PassedOnce => Move::PassTwice,
+                PassState::PassedTwice => panic!("Cannot generate moves when the game is finished"),
             },
         ));
 
@@ -527,9 +538,9 @@ mod tests {
     #[test]
     fn pass_sets_last_move_pass() {
         let game = GoGame::from_sgf(include_str!("test_sgfs/ko_rule_simple.sgf"));
-        let new_game = game.pass();
+        let game = game.pass();
 
-        assert!(new_game.last_move_pass);
+        assert_eq!(game.pass_state, PassState::PassedOnce);
     }
 
     #[test]
@@ -538,7 +549,7 @@ mod tests {
         let game = game.pass();
         let game = game.play_placing_move(BoardPosition::new(13, 7)).unwrap();
 
-        assert!(!game.last_move_pass);
+        assert_eq!(game.pass_state, PassState::NoPass);
     }
 
     #[test]

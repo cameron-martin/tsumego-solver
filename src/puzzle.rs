@@ -1,7 +1,8 @@
 mod profiler;
 mod proof_number;
+mod terminal_detection;
 
-use crate::go::{GoBoard, GoGame, GoPlayer, Move};
+use crate::go::{GoGame, GoPlayer, Move};
 use petgraph::stable_graph::NodeIndex;
 use petgraph::stable_graph::StableGraph;
 use petgraph::visit::EdgeRef;
@@ -64,17 +65,17 @@ impl AndOrNode {
         }
     }
 
-    pub fn create_true_leaf() -> AndOrNode {
-        AndOrNode {
-            proof_number: ProofNumber::finite(0),
-            disproof_number: ProofNumber::infinite(),
-        }
-    }
-
-    pub fn create_false_leaf() -> AndOrNode {
-        AndOrNode {
-            proof_number: ProofNumber::infinite(),
-            disproof_number: ProofNumber::finite(0),
+    pub fn create_terminal(value: bool) -> AndOrNode {
+        if value {
+            AndOrNode {
+                proof_number: ProofNumber::finite(0),
+                disproof_number: ProofNumber::infinite(),
+            }
+        } else {
+            AndOrNode {
+                proof_number: ProofNumber::infinite(),
+                disproof_number: ProofNumber::finite(0),
+            }
         }
     }
 
@@ -137,10 +138,6 @@ impl<P: Profiler> Puzzle<P> {
         Self::new(GoGame::from_sgf(sgf_string))
     }
 
-    fn defender(&self) -> GoPlayer {
-        self.attacker.flip()
-    }
-
     pub fn current_game(&self) -> GoGame {
         *self.game_stack.last().unwrap()
     }
@@ -154,48 +151,13 @@ impl<P: Profiler> Puzzle<P> {
 
         debug_assert!(!moves.is_empty(), "No moves found for node: {:?}", game);
 
-        self.profiler.add_nodes(moves.len() as u8);
+        self.profiler.expand_node(game, moves.len() as u8);
 
-        for (child, board_move) in moves {
-            // If both players pass sequentially, the game ends and the defender wins
-            // if they still have stones on the board. Specifically, the result is
-            // determined according to the following truth table:
-            // | player is attacker | defender has stones | player wins |
-            // | ------------------ | ------------------- | ----------- |
-            // | 1                  | 1                   | 0           |
-            // | 1                  | 0                   | 1           |
-            // | 0                  | 1                   | 1           |
-            // | 0                  | 0                   | 0           |
-            let new_node = if board_move == Move::PassTwice {
-                let defender_has_stones = !(child
-                    .get_board()
-                    .get_bitboard_for_player(self.defender())
-                    .is_empty());
-
-                if (self.player == self.attacker) ^ defender_has_stones {
-                    AndOrNode::create_true_leaf()
-                } else {
-                    AndOrNode::create_false_leaf()
-                }
-            // If the defender has unconditionally alive blocks, the defender wins
-            } else if !child
-                .get_board()
-                .unconditionally_alive_blocks_for_player(self.defender())
-                .is_empty()
+        for (child, board_move) in moves.iter().rev() {
+            let new_node = if let Some(game_theoretic_value) =
+                terminal_detection::is_terminal(*child, self.player, self.attacker)
             {
-                if self.defender() == self.player {
-                    AndOrNode::create_true_leaf()
-                } else {
-                    AndOrNode::create_false_leaf()
-                }
-            // If the defender doesn't have any space to create eyes, the attacker wins
-            } else if self.is_defender_dead(child.get_board()) {
-                if self.attacker == self.player {
-                    AndOrNode::create_true_leaf()
-                } else {
-                    AndOrNode::create_false_leaf()
-                }
-            // Otherwise, the result is a non-terminal node
+                AndOrNode::create_terminal(game_theoretic_value)
             } else {
                 AndOrNode::create_non_terminal_leaf()
             };
@@ -203,21 +165,12 @@ impl<P: Profiler> Puzzle<P> {
             let new_node_id = self.tree.add_node(new_node);
 
             self.tree
-                .add_edge(self.current_node_id, new_node_id, board_move);
+                .add_edge(self.current_node_id, new_node_id, *board_move);
         }
-    }
 
-    /// A conservative estimate on whether the group is dead.
-    /// true means it's definitely dead, false otherwise
-    fn is_defender_dead(&self, board: GoBoard) -> bool {
-        let attacker_alive = board
-            .out_of_bounds()
-            .expand_one()
-            .flood_fill(board.get_bitboard_for_player(self.attacker));
-
-        let maximum_living_shape = !attacker_alive & !board.out_of_bounds();
-
-        maximum_living_shape.interior().count() < 2
+        // Bump up max depth if necessary.
+        self.profiler.move_down();
+        self.profiler.move_up();
     }
 
     fn select_most_proving_node(&mut self) {
@@ -419,6 +372,9 @@ impl<P: Profiler> Puzzle<P> {
 mod tests {
     use super::*;
     use crate::go::{BoardPosition, GoGame};
+    use insta::{assert_display_snapshot, assert_snapshot};
+    use profiler::Profile;
+    use std::borrow::Borrow;
 
     #[test]
     fn true_simple1() {
@@ -430,8 +386,8 @@ mod tests {
 
         assert!(puzzle.root_node().is_proved());
         assert_eq!(puzzle.first_move(), Move::Place(BoardPosition::new(4, 0)));
-        assert_eq!(puzzle.profiler.node_count, 456);
-        assert_eq!(puzzle.profiler.max_depth, 6);
+        assert_display_snapshot!(puzzle.profiler.node_count, @"282");
+        assert_display_snapshot!(puzzle.profiler.max_depth, @"7");
     }
 
     #[test]
@@ -444,8 +400,8 @@ mod tests {
 
         assert!(puzzle.root_node().is_proved(), "{:?}", puzzle.root_node());
         assert_eq!(puzzle.first_move(), Move::Place(BoardPosition::new(2, 1)));
-        assert_eq!(puzzle.profiler.node_count, 7936);
-        assert_eq!(puzzle.profiler.max_depth, 12);
+        assert_display_snapshot!(puzzle.profiler.node_count, @"5116");
+        assert_display_snapshot!(puzzle.profiler.max_depth, @"14");
     }
 
     #[test]
@@ -458,8 +414,8 @@ mod tests {
 
         assert!(puzzle.root_node().is_proved(), "{:?}", puzzle.root_node());
         assert_eq!(puzzle.first_move(), Move::Place(BoardPosition::new(5, 0)));
-        assert_eq!(puzzle.profiler.node_count, 572);
-        assert_eq!(puzzle.profiler.max_depth, 9);
+        assert_display_snapshot!(puzzle.profiler.node_count, @"578");
+        assert_display_snapshot!(puzzle.profiler.max_depth, @"10");
     }
 
     #[test]
@@ -472,8 +428,8 @@ mod tests {
 
         assert!(puzzle.root_node().is_proved(), "{:?}", puzzle.root_node());
         assert_eq!(puzzle.first_move(), Move::Place(BoardPosition::new(7, 0)));
-        assert_eq!(puzzle.profiler.node_count, 50273);
-        assert_eq!(puzzle.profiler.max_depth, 18);
+        assert_display_snapshot!(puzzle.profiler.node_count, @"96851");
+        assert_display_snapshot!(puzzle.profiler.max_depth, @"20");
     }
 
     #[test]
@@ -486,7 +442,54 @@ mod tests {
 
         assert!(puzzle.root_node().is_proved(), "{:?}", puzzle.root_node());
         assert_eq!(puzzle.first_move(), Move::Place(BoardPosition::new(14, 2)));
-        assert_eq!(puzzle.profiler.node_count, 3061532);
-        assert_eq!(puzzle.profiler.max_depth, 30);
+        assert_display_snapshot!(puzzle.profiler.node_count, @"3011710");
+        assert_display_snapshot!(puzzle.profiler.max_depth, @"33");
+    }
+
+    #[test]
+    fn true_ultrasimple1() {
+        let tsumego = GoGame::from_sgf(include_str!("test_sgfs/puzzles/true_ultrasimple1.sgf"));
+
+        let mut puzzle = Puzzle::<Profile>::new(tsumego);
+
+        puzzle.solve();
+
+        assert!(puzzle.root_node().is_proved(), "{:?}", puzzle.root_node());
+        assert_eq!(puzzle.first_move(), Move::Place(BoardPosition::new(1, 0)));
+        assert_display_snapshot!(puzzle.profiler.node_count, @"5");
+        assert_display_snapshot!(puzzle.profiler.max_depth, @"2");
+    }
+
+    #[test]
+    fn true_ultrasimple2() {
+        let tsumego = GoGame::from_sgf(include_str!("test_sgfs/puzzles/true_ultrasimple2.sgf"));
+
+        let mut puzzle = Puzzle::<Profile>::new(tsumego);
+
+        puzzle.solve();
+
+        assert!(puzzle.root_node().is_proved(), "{:?}", puzzle.root_node());
+        assert_eq!(puzzle.first_move(), Move::Place(BoardPosition::new(1, 0)));
+        assert_display_snapshot!(puzzle.profiler.node_count, @"494");
+        assert_display_snapshot!(puzzle.profiler.max_depth, @"14");
+    }
+
+    #[test]
+    fn trace_expanded_nodes() {
+        let tsumego = GoGame::from_sgf(include_str!("test_sgfs/puzzles/true_ultrasimple2.sgf"));
+        let mut puzzle = Puzzle::<Profile>::new(tsumego);
+
+        puzzle.solve();
+
+        let mut output = String::new();
+        let mut count = 1;
+        for (node, depth) in puzzle.profiler.expanded_list {
+            output.push_str(
+                format!("{}, depth {}:\n{}\n\n", count, depth, node.get_board()).borrow(),
+            );
+            count += 1;
+        }
+
+        assert_snapshot!(output);
     }
 }
