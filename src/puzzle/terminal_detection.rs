@@ -9,13 +9,13 @@ pub fn is_terminal(game: GoGame, player: GoPlayer, attacker: GoPlayer) -> Option
         Some(game.current_player == player)
     // If the defender has unconditionally alive blocks, the defender wins
     } else if !game
-        .get_board()
+        .board
         .unconditionally_alive_blocks_for_player(defender)
         .is_empty()
     {
         Some(defender == player)
     // If the defender doesn't have any space to create eyes, the attacker wins
-    } else if is_defender_dead(game.get_board(), attacker) {
+    } else if is_defender_dead(game.board, attacker) {
         Some(attacker == player)
     // Otherwise, the result is a non-terminal node
     } else {
