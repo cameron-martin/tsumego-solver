@@ -400,7 +400,7 @@ mod tests {
 
         assert!(puzzle.root_node().is_proved(), "{:?}", puzzle.root_node());
         assert_eq!(puzzle.first_move(), Move::Place(BoardPosition::new(2, 1)));
-        assert_display_snapshot!(puzzle.profiler.node_count, @"5453");
+        assert_display_snapshot!(puzzle.profiler.node_count, @"2989");
         assert_display_snapshot!(puzzle.profiler.max_depth, @"15");
     }
 
@@ -428,7 +428,7 @@ mod tests {
 
         assert!(puzzle.root_node().is_proved(), "{:?}", puzzle.root_node());
         assert_eq!(puzzle.first_move(), Move::Place(BoardPosition::new(7, 0)));
-        assert_display_snapshot!(puzzle.profiler.node_count, @"59145");
+        assert_display_snapshot!(puzzle.profiler.node_count, @"59140");
         assert_display_snapshot!(puzzle.profiler.max_depth, @"18");
     }
 
@@ -442,8 +442,8 @@ mod tests {
 
         assert!(puzzle.root_node().is_proved(), "{:?}", puzzle.root_node());
         assert_eq!(puzzle.first_move(), Move::Place(BoardPosition::new(14, 2)));
-        assert_display_snapshot!(puzzle.profiler.node_count, @"345725");
-        assert_display_snapshot!(puzzle.profiler.max_depth, @"29");
+        assert_display_snapshot!(puzzle.profiler.node_count, @"176977");
+        assert_display_snapshot!(puzzle.profiler.max_depth, @"25");
     }
 
     #[test]
