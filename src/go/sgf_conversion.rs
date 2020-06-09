@@ -132,6 +132,6 @@ mod tests {
 
     #[quickcheck]
     fn inverse(board: GoBoard) {
-        assert_eq!(GoGame::from_sgf(&board.to_sgf()).get_board(), board);
+        assert_eq!(GoGame::from_sgf(&board.to_sgf()).board, board);
     }
 }

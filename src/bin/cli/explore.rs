@@ -54,7 +54,7 @@ fn create_layer(puzzle_cell: Rc<RefCell<Puzzle<Profile>>>) -> LinearLayout {
         TextView::new(format!(
             "{:?}\n\n{}",
             puzzle.tree[puzzle.current_node_id],
-            puzzle.current_game().get_board()
+            puzzle.current_game().board
         )),
     );
 

@@ -52,7 +52,7 @@ impl Debug for AndOrNode {
             self.proof_number,
             self.disproof_number,
             // self.game.current_player,
-            // self.game.get_board()
+            // self.game.board
         ))
     }
 }
@@ -107,8 +107,8 @@ impl<P: Profiler> Puzzle<P> {
     pub fn new(game: GoGame) -> Puzzle<P> {
         // debug_assert_eq!(game.plys(), 0);
 
-        let attacker = if !(game.get_board().out_of_bounds().expand_one()
-            & game.get_board().get_bitboard_for_player(GoPlayer::White))
+        let attacker = if !(game.board.out_of_bounds().expand_one()
+            & game.board.get_bitboard_for_player(GoPlayer::White))
         .is_empty()
         {
             GoPlayer::White
@@ -484,9 +484,7 @@ mod tests {
         let mut output = String::new();
         let mut count = 1;
         for (node, depth) in puzzle.profiler.expanded_list {
-            output.push_str(
-                format!("{}, depth {}:\n{}\n\n", count, depth, node.get_board()).borrow(),
-            );
+            output.push_str(format!("{}, depth {}:\n{}\n\n", count, depth, node.board).borrow());
             count += 1;
         }
 
