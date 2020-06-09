@@ -11,16 +11,14 @@ use std::hash::{Hash, Hasher};
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Move {
-    PassTwice,
-    PassOnce,
+    Pass,
     Place(BoardPosition),
 }
 
 impl Display for Move {
     fn fmt(&self, f: &mut Formatter) -> Result<(), fmt::Error> {
         match self {
-            Move::PassOnce => f.write_str("Pass (once)"),
-            Move::PassTwice => f.write_str("Pass (twice)"),
+            Move::Pass => f.write_str("Pass"),
             Move::Place(position) => f.write_fmt(format_args!("{}", position)),
         }
     }
@@ -301,8 +299,7 @@ impl GoGame {
     pub fn play_move(&self, go_move: Move) -> Result<GoGame, MoveError> {
         match go_move {
             Move::Place(position) => self.play_placing_move(position),
-            Move::PassOnce => Ok(self.pass()),
-            Move::PassTwice => Ok(self.pass()),
+            Move::Pass => Ok(self.pass()),
         }
     }
 
@@ -384,14 +381,7 @@ impl GoGame {
     pub fn generate_moves_including_pass(&self) -> Vec<(GoGame, Move)> {
         let mut games = self.generate_moves();
 
-        games.push((
-            self.pass(),
-            match self.pass_state {
-                PassState::NoPass => Move::PassOnce,
-                PassState::PassedOnce => Move::PassTwice,
-                PassState::PassedTwice => panic!("Cannot generate moves when the game is finished"),
-            },
-        ));
+        games.push((self.pass(), Move::Pass));
 
         games
     }
