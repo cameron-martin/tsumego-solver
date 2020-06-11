@@ -3,7 +3,7 @@ use std::fmt::{Debug, Display, Formatter};
 use std::ops::{BitAnd, BitOr, BitXor, Not};
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
-pub struct BoardPosition(u8);
+pub struct BoardPosition(pub(super) u8);
 
 impl BoardPosition {
     pub fn new(column: u8, row: u8) -> BoardPosition {

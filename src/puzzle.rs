@@ -117,7 +117,7 @@ mod tests {
     fn true_simple1() {
         let tsumego = GoGame::from_sgf(include_str!("test_sgfs/puzzles/true_simple1.sgf"));
 
-        let mut puzzle = Puzzle::new(tsumego);
+        let puzzle = Puzzle::new(tsumego);
 
         let solution = puzzle.solve::<Profile>();
 
@@ -131,13 +131,13 @@ mod tests {
     fn true_simple2() {
         let tsumego = GoGame::from_sgf(include_str!("test_sgfs/puzzles/true_simple2.sgf"));
 
-        let mut puzzle = Puzzle::new(tsumego);
+        let puzzle = Puzzle::new(tsumego);
 
         let solution = puzzle.solve::<Profile>();
 
         assert!(solution.won);
-        assert_display_snapshot!(solution.profiler.visited_nodes, @"7295");
-        assert_display_snapshot!(solution.profiler.max_depth, @"9");
+        assert_display_snapshot!(solution.profiler.visited_nodes, @"1657");
+        assert_display_snapshot!(solution.profiler.max_depth, @"7");
         assert_snapshot!(show_principle_variation(&puzzle, &solution));
     }
 
@@ -145,12 +145,12 @@ mod tests {
     fn true_simple3() {
         let tsumego = GoGame::from_sgf(include_str!("test_sgfs/puzzles/true_simple3.sgf"));
 
-        let mut puzzle = Puzzle::new(tsumego);
+        let puzzle = Puzzle::new(tsumego);
 
         let solution = puzzle.solve::<Profile>();
 
         assert!(solution.won);
-        assert_display_snapshot!(solution.profiler.visited_nodes, @"2946");
+        assert_display_snapshot!(solution.profiler.visited_nodes, @"1490");
         assert_display_snapshot!(solution.profiler.max_depth, @"8");
         assert_snapshot!(show_principle_variation(&puzzle, &solution));
     }
@@ -159,7 +159,7 @@ mod tests {
     fn true_simple4() {
         let tsumego = GoGame::from_sgf(include_str!("test_sgfs/puzzles/true_simple4.sgf"));
 
-        let mut puzzle = Puzzle::new(tsumego);
+        let puzzle = Puzzle::new(tsumego);
 
         let solution = puzzle.solve::<Profile>();
 
@@ -187,7 +187,7 @@ mod tests {
     fn true_ultrasimple1() {
         let tsumego = GoGame::from_sgf(include_str!("test_sgfs/puzzles/true_ultrasimple1.sgf"));
 
-        let mut puzzle = Puzzle::new(tsumego);
+        let puzzle = Puzzle::new(tsumego);
 
         let solution = puzzle.solve::<Profile>();
 
@@ -201,12 +201,12 @@ mod tests {
     fn true_ultrasimple2() {
         let tsumego = GoGame::from_sgf(include_str!("test_sgfs/puzzles/true_ultrasimple2.sgf"));
 
-        let mut puzzle = Puzzle::new(tsumego);
+        let puzzle = Puzzle::new(tsumego);
 
         let solution = puzzle.solve::<Profile>();
 
         assert!(solution.won);
-        assert_display_snapshot!(solution.profiler.visited_nodes, @"2170");
+        assert_display_snapshot!(solution.profiler.visited_nodes, @"1939");
         assert_display_snapshot!(solution.profiler.max_depth, @"8");
         assert_snapshot!(show_principle_variation(&puzzle, &solution));
     }

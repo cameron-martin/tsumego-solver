@@ -1,6 +1,5 @@
 use std::{
-    collections::HashMap,
-    fs::{self, OpenOptions},
+    fs::{self, File, OpenOptions},
     io,
     io::Write,
     path::Path,
@@ -9,7 +8,7 @@ use std::{
     time::Duration,
 };
 use tsumego_solver::{
-    generation::generate_puzzle,
+    generation::{generate_puzzle, GeneratedPuzzle},
     go::{GoBoard, GoGame, GoPlayer, Move},
     puzzle::{NoProfile, Solution},
 };
@@ -39,6 +38,26 @@ fn extract_examples(
         .collect()
 }
 
+fn write_examples(puzzle: &GeneratedPuzzle<NoProfile>, file: &mut File) -> io::Result<()> {
+    for &player in GoPlayer::both() {
+        let examples = extract_examples(puzzle.board, puzzle.solution_for_player(player), player);
+        for (board, go_move) in examples {
+            let mut bytes: [u8; 49] = [0; 49];
+
+            bytes[0..16]
+                .copy_from_slice(&board.get_bitboard_for_player(GoPlayer::Black).serialise());
+            bytes[16..32]
+                .copy_from_slice(&board.get_bitboard_for_player(GoPlayer::White).serialise());
+            bytes[32..48].copy_from_slice(&board.out_of_bounds().serialise());
+            bytes[48..49].copy_from_slice(&go_move.serialise());
+
+            file.write_all(&bytes)?;
+        }
+    }
+
+    Ok(())
+}
+
 pub fn run(output_directory: &Path, thread_count: u8) -> io::Result<()> {
     fs::create_dir_all(output_directory)?;
 
@@ -52,7 +71,7 @@ pub fn run(output_directory: &Path, thread_count: u8) -> io::Result<()> {
         });
     }
 
-    let file = OpenOptions::new()
+    let mut file = OpenOptions::new()
         .create(true)
         .append(true)
         .open(output_directory.join("_examples.bin"))?;
@@ -60,25 +79,7 @@ pub fn run(output_directory: &Path, thread_count: u8) -> io::Result<()> {
     loop {
         let puzzle = rx.recv().unwrap();
 
-        for &player in GoPlayer::both() {
-            let examples =
-                extract_examples(puzzle.board, puzzle.solution_for_player(player), player);
-            for (board, go_move) in examples {
-                let bytes = [
-                    board.get_bitboard_for_player(GoPlayer::Black).serialise(),
-                    board.get_bitboard_for_player(GoPlayer::White).serialise(),
-                    go_move.serialise()
-                ].concat();
-                file.write_all(bytes);
-            }
-        }
-
-        // puzzle.black_solution.principle_variation
-        // let example = HashMap::new();
-        // example.insert("board");
-        // example.insert("move", );
-
-        // writer.send(example);
+        write_examples(&puzzle, &mut file)?;
 
         let file = output_directory.join(format!("{:016x}.sgf", puzzle.board.stable_hash()));
         if file.exists() {

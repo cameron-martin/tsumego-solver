@@ -117,6 +117,6 @@ impl<'a, C: AbortController, P: Profiler> SolvingIteration<'a, C, P> {
             }
         }
 
-        return Some(m);
+        Some(m)
     }
 }

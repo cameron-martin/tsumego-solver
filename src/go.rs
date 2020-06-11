@@ -24,6 +24,15 @@ impl Display for Move {
     }
 }
 
+impl Move {
+    pub fn serialise(self) -> [u8; 1] {
+        [match self {
+            Move::Pass => 128,
+            Move::Place(position) => position.0,
+        }]
+    }
+}
+
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum BoardCell {
     Empty,
@@ -292,10 +301,7 @@ impl Iterator for MovesIncPassIterator {
         if let Some(item) = self.moves_iterator.next() {
             Some(item)
         } else if !self.passed {
-            let item = (
-                self.moves_iterator.game.pass(),
-                Move::Pass,
-            );
+            let item = (self.moves_iterator.game.pass(), Move::Pass);
 
             self.passed = true;
 
