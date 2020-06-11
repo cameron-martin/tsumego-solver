@@ -205,7 +205,9 @@ impl GoBoard {
         self.set_bitboard_for_player(player, stones_with_liberties);
     }
 
-    pub fn has_dead_groups(&self) -> bool {
+    /// Determines whether captured groups exist on the board that haven't been removed.
+    /// This is an invalid state for the board to be in.
+    pub fn has_captured_groups(&self) -> bool {
         GoPlayer::both().any(|&player| {
             let alive_groups = self.get_alive_groups_for_player(player);
 
@@ -598,7 +600,7 @@ mod tests {
     }
 
     #[test]
-    fn has_dead_groups_black() {
+    fn has_captured_groups_black() {
         let mut game = GoBoard::empty();
         game.set_cell(
             BoardPosition::new(0, 0),
@@ -613,11 +615,11 @@ mod tests {
             BoardCell::Occupied(GoPlayer::White),
         );
 
-        assert!(game.has_dead_groups());
+        assert!(game.has_captured_groups());
     }
 
     #[test]
-    fn has_dead_groups_white() {
+    fn has_captured_groups_white() {
         let mut game = GoBoard::empty();
         game.set_cell(
             BoardPosition::new(0, 0),
@@ -632,11 +634,11 @@ mod tests {
             BoardCell::Occupied(GoPlayer::Black),
         );
 
-        assert!(game.has_dead_groups());
+        assert!(game.has_captured_groups());
     }
 
     #[test]
-    fn has_dead_groups_false() {
+    fn has_captured_groups_false() {
         let mut game = GoBoard::empty();
         game.set_cell(
             BoardPosition::new(0, 1),
@@ -647,7 +649,7 @@ mod tests {
             BoardCell::Occupied(GoPlayer::White),
         );
 
-        assert!(!game.has_dead_groups());
+        assert!(!game.has_captured_groups());
     }
 
     #[test]
