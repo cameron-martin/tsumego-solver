@@ -8,7 +8,6 @@ edition = "2018"
 
 [dependencies]
 sgf-parser = "2.4.0"
-cursive = { version = "0.14", default-features = false, features = ["crossterm-backend"] }
 clap = "2.33.0"
 rand = "0.7"
 
