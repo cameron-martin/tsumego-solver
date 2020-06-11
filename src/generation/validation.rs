@@ -1,10 +1,9 @@
 use crate::go::{GoBoard, GoGame, GoPlayer};
-use crate::puzzle::Profiler;
-use crate::puzzle::Puzzle;
+use crate::puzzle::{Profiler, Puzzle};
 use std::time::Duration;
 
 pub fn validate_candidate<P: Profiler>(candidate: GoBoard, timeout: Duration) -> bool {
-    if candidate.has_dead_groups() {
+    if candidate.has_captured_groups() {
         return false;
     }
 
