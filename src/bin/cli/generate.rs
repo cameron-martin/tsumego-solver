@@ -26,9 +26,9 @@ fn extract_examples(
         .iter()
         .scan(game, |game, &go_move| {
             let board = if game.current_player == GoPlayer::White {
-                game.get_board().invert_colours()
+                game.board.invert_colours()
             } else {
-                game.get_board()
+                game.board
             };
             let example = (board, go_move);
 

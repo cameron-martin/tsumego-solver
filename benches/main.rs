@@ -37,7 +37,7 @@ fn unconditional_life(c: &mut Criterion) {
     group.bench_function("mixture", |b| {
         b.iter_batched(
             || GoGame::from_sgf(include_str!("../src/test_sgfs/life_and_death/mixture.sgf")),
-            |game| game.get_board().unconditionally_alive_blocks(),
+            |game| game.board.unconditionally_alive_blocks(),
             BatchSize::SmallInput,
         )
     });
@@ -49,7 +49,7 @@ fn unconditional_life(c: &mut Criterion) {
                     "../src/test_sgfs/life_and_death/all_alive1.sgf"
                 ))
             },
-            |game| game.get_board().unconditionally_alive_blocks(),
+            |game| game.board.unconditionally_alive_blocks(),
             BatchSize::SmallInput,
         )
     });
@@ -61,7 +61,7 @@ fn unconditional_life(c: &mut Criterion) {
                     "../src/test_sgfs/life_and_death/all_dead1.sgf"
                 ))
             },
-            |game| game.get_board().unconditionally_alive_blocks(),
+            |game| game.board.unconditionally_alive_blocks(),
             BatchSize::SmallInput,
         )
     });

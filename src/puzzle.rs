@@ -21,8 +21,8 @@ pub struct Puzzle {
 
 impl Puzzle {
     pub fn new(game: GoGame) -> Puzzle {
-        let attacker = if !(game.get_board().out_of_bounds().expand_one()
-            & game.get_board().get_bitboard_for_player(GoPlayer::White))
+        let attacker = if !(game.board.out_of_bounds().expand_one()
+            & game.board.get_bitboard_for_player(GoPlayer::White))
         .is_empty()
         {
             GoPlayer::White
@@ -97,14 +97,14 @@ mod tests {
             });
 
         let mut output = String::new();
-        output.push_str(format!("{}\n\n", puzzle.game.get_board()).borrow());
+        output.push_str(&format!("{}\n\n", puzzle.game.board));
         for (game, go_move) in games {
             output.push_str(
                 format!(
                     "{}: {}\n{}\n\n",
                     game.current_player.flip(),
                     go_move,
-                    game.get_board()
+                    game.board
                 )
                 .borrow(),
             );

@@ -11,16 +11,14 @@ use std::hash::{Hash, Hasher};
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Move {
-    PassTwice,
-    PassOnce,
+    Pass,
     Place(BoardPosition),
 }
 
 impl Display for Move {
     fn fmt(&self, f: &mut Formatter) -> Result<(), fmt::Error> {
         match self {
-            Move::PassOnce => f.write_str("Pass (once)"),
-            Move::PassTwice => f.write_str("Pass (twice)"),
+            Move::Pass => f.write_str("Pass"),
             Move::Place(position) => f.write_fmt(format_args!("{}", position)),
         }
     }
@@ -250,7 +248,7 @@ pub enum PassState {
 #[derive(Debug, PartialEq, Clone, Copy, Eq, Hash)]
 pub struct GoGame {
     ko_violations: BitBoard,
-    board: GoBoard,
+    pub board: GoBoard,
     pub current_player: GoPlayer,
     pub pass_state: PassState,
 }
@@ -296,13 +294,7 @@ impl Iterator for MovesIncPassIterator {
         } else if !self.passed {
             let item = (
                 self.moves_iterator.game.pass(),
-                match self.moves_iterator.game.pass_state {
-                    PassState::NoPass => Move::PassOnce,
-                    PassState::PassedOnce => Move::PassTwice,
-                    PassState::PassedTwice => {
-                        panic!("Cannot generate moves when the game is finished")
-                    }
-                },
+                Move::Pass,
             );
 
             self.passed = true;
@@ -333,16 +325,12 @@ impl GoGame {
         }
     }
 
-    pub fn get_board(&self) -> GoBoard {
-        self.board
-    }
-
     fn get_cell(&self, position: BoardPosition) -> BoardCell {
-        self.get_board().get_cell(position)
+        self.board.get_cell(position)
     }
 
     fn is_out_of_bounds(&self, position: BoardPosition) -> bool {
-        self.get_board().is_out_of_bounds(position)
+        self.board.is_out_of_bounds(position)
     }
 
     pub fn play_move_for_player(
@@ -360,8 +348,7 @@ impl GoGame {
     pub fn play_move(&self, go_move: Move) -> Result<GoGame, MoveError> {
         match go_move {
             Move::Place(position) => self.play_placing_move(position),
-            Move::PassOnce => Ok(self.pass()),
-            Move::PassTwice => Ok(self.pass()),
+            Move::Pass => Ok(self.pass()),
         }
     }
 
@@ -376,7 +363,7 @@ impl GoGame {
 
         let next_player = self.current_player.flip();
 
-        let mut new_board = self.get_board();
+        let mut new_board = self.board;
         new_board.set_cell(position, BoardCell::Occupied(self.current_player));
 
         // Remove dead groups owned by other player
@@ -393,9 +380,7 @@ impl GoGame {
         }
 
         let ko_violations = if (BitBoard::singleton(position).immediate_exterior()
-            & self
-                .get_board()
-                .get_bitboard_for_player(self.current_player))
+            & self.board.get_bitboard_for_player(self.current_player))
         .is_empty()
         {
             (self.board.get_bitboard_for_player(next_player)
@@ -427,11 +412,9 @@ impl GoGame {
     }
 
     pub fn generate_moves(&self) -> MovesIterator {
-        let board = self.get_board();
-
         MovesIterator {
             game: *self,
-            remaining_positions: (!(board.white | board.black)).positions(),
+            remaining_positions: (!(self.board.white | self.board.black)).positions(),
         }
     }
 
@@ -520,7 +503,7 @@ mod tests {
         let game = game.play_placing_move(BoardPosition::new(11, 6)).unwrap();
 
         assert_eq!(
-            format!("{}", game.get_board()),
+            format!("{}", game.board),
             ". . . . . . . . . . . . . . . .\n\
              . b . b . b b w w . w . . . . .\n\
              . . . . . . . b w w . w . w . .\n\

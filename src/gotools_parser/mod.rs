@@ -145,7 +145,7 @@ mod tests {
         let mut string = String::new();
 
         for puzzle in puzzles.valid_puzzles {
-            string.push_str(format!("{}\n", puzzle.game.get_board()).borrow());
+            string.push_str(&format!("{}\n", puzzle.game.board));
         }
 
         assert_snapshot!(string);
