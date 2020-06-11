@@ -10,6 +10,7 @@ edition = "2018"
 sgf-parser = "2.4.0"
 clap = "2.33.0"
 rand = "0.7"
+tfrecord = "0.2.1"
 
 [dev-dependencies]
 criterion = "0.3.1"

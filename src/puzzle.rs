@@ -8,7 +8,7 @@ mod terminal_detection;
 use crate::go::{GoGame, GoPlayer};
 use abort_controller::{AbortController, NoAbortController, TimeoutAbortController};
 pub use profiler::{NoProfile, Profile, Profiler};
-use solution::Solution;
+pub use solution::Solution;
 use solving_session::SolvingSession;
 use std::time::Duration;
 
@@ -43,17 +43,17 @@ impl Puzzle {
         Self::new(GoGame::from_sgf(sgf_string))
     }
 
-    pub fn solve<P: Profiler>(&mut self) -> Solution<P> {
+    pub fn solve<P: Profiler>(&self) -> Solution<P> {
         self.solve_with_controller::<_, P>(NoAbortController)
             .unwrap()
     }
 
-    pub fn solve_with_timeout<P: Profiler>(&mut self, timeout: Duration) -> Option<Solution<P>> {
+    pub fn solve_with_timeout<P: Profiler>(&self, timeout: Duration) -> Option<Solution<P>> {
         self.solve_with_controller::<_, P>(TimeoutAbortController::duration(timeout))
     }
 
     fn solve_with_controller<C: AbortController, P: Profiler>(
-        &mut self,
+        &self,
         abort_controller: C,
     ) -> Option<Solution<P>> {
         let mut max_depth: u8 = 1;
