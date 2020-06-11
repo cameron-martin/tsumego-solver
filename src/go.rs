@@ -231,6 +231,13 @@ impl GoBoard {
 
         hasher.finish()
     }
+
+    pub fn invert_colours(&self) -> Self {
+        GoBoard {
+            black: self.white,
+            white: self.black,
+        }
+    }
 }
 
 #[derive(Debug, PartialEq, Clone, Copy, Eq, Hash)]

@@ -2,7 +2,7 @@ extern crate pest;
 
 use std::fs;
 use std::path::Path;
-use tsumego_solver::{puzzle::NoProfile, gotools_parser};
+use tsumego_solver::{gotools_parser, puzzle::NoProfile};
 
 use gotools_parser::PuzzleCollection;
 use std::borrow::Borrow;

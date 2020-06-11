@@ -198,6 +198,10 @@ impl BitBoard {
     pub fn count(self) -> u32 {
         self.0.count_ones()
     }
+
+    pub fn serialise(self) -> [u8; 16] {
+        self.0.to_be_bytes()
+    }
 }
 
 pub struct BitBoardGroupIterator {
