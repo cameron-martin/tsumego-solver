@@ -48,7 +48,7 @@ fn write_examples(puzzle: &GeneratedPuzzle<NoProfile>, file: &mut File) -> io::R
                 .copy_from_slice(&board.get_bitboard_for_player(GoPlayer::Black).serialise());
             bytes[16..32]
                 .copy_from_slice(&board.get_bitboard_for_player(GoPlayer::White).serialise());
-            bytes[32..48].copy_from_slice(&board.out_of_bounds().serialise());
+            bytes[32..48].copy_from_slice(&(!board.out_of_bounds()).serialise());
             bytes[48..49].copy_from_slice(&go_move.serialise());
 
             file.write_all(&bytes)?;
