@@ -1,6 +1,7 @@
-README.rst
 setup.py
 network/__init__.py
+network/decode.py
+network/train.py
 network.egg-info/PKG-INFO
 network.egg-info/SOURCES.txt
 network.egg-info/dependency_links.txt
