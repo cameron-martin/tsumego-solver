@@ -1,4 +1,5 @@
 mod abort_controller;
+mod move_ranker;
 mod profiler;
 mod solution;
 mod solving_iteration;
@@ -7,10 +8,11 @@ mod terminal_detection;
 
 use crate::go::{GoGame, GoPlayer};
 use abort_controller::{AbortController, NoAbortController, TimeoutAbortController};
+pub use move_ranker::MoveRanker;
 pub use profiler::{NoProfile, Profile, Profiler};
 pub use solution::Solution;
 use solving_session::SolvingSession;
-use std::time::Duration;
+use std::{rc::Rc, time::Duration};
 
 #[derive(Copy, Clone)]
 pub struct Puzzle {
@@ -43,22 +45,27 @@ impl Puzzle {
         Self::new(GoGame::from_sgf(sgf_string))
     }
 
-    pub fn solve<P: Profiler>(&self) -> Solution<P> {
-        self.solve_with_controller::<_, P>(NoAbortController)
+    pub fn solve<P: Profiler>(&self, move_ranker: Rc<MoveRanker>) -> Solution<P> {
+        self.solve_with_controller::<_, P>(NoAbortController, move_ranker)
             .unwrap()
     }
 
-    pub fn solve_with_timeout<P: Profiler>(&self, timeout: Duration) -> Option<Solution<P>> {
-        self.solve_with_controller::<_, P>(TimeoutAbortController::duration(timeout))
+    pub fn solve_with_timeout<P: Profiler>(
+        &self,
+        timeout: Duration,
+        move_ranker: Rc<MoveRanker>,
+    ) -> Option<Solution<P>> {
+        self.solve_with_controller::<_, P>(TimeoutAbortController::duration(timeout), move_ranker)
     }
 
     fn solve_with_controller<C: AbortController, P: Profiler>(
         &self,
         abort_controller: C,
+        move_ranker: Rc<MoveRanker>,
     ) -> Option<Solution<P>> {
         let mut max_depth: u8 = 1;
 
-        let mut session = SolvingSession::new(*self, abort_controller);
+        let mut session = SolvingSession::new(*self, abort_controller, move_ranker);
 
         loop {
             let mut iteration = session.create_iteration(max_depth);
@@ -84,7 +91,7 @@ mod tests {
     use crate::go::GoGame;
     use insta::{assert_display_snapshot, assert_snapshot};
     use profiler::Profile;
-    use std::borrow::Borrow;
+    use std::{borrow::Borrow, path::Path, rc::Rc};
 
     fn show_principle_variation<P: Profiler>(puzzle: &Puzzle, solution: &Solution<P>) -> String {
         let games = solution
@@ -119,10 +126,11 @@ mod tests {
 
         let puzzle = Puzzle::new(tsumego);
 
-        let solution = puzzle.solve::<Profile>();
+        let solution =
+            puzzle.solve::<Profile>(Rc::new(MoveRanker::new(Path::new("network/model"))));
 
         assert!(solution.won);
-        assert_display_snapshot!(solution.profiler.visited_nodes, @"644");
+        assert_display_snapshot!(solution.profiler.visited_nodes, @"640");
         assert_display_snapshot!(solution.profiler.max_depth, @"5");
         assert_snapshot!(show_principle_variation(&puzzle, &solution));
     }
@@ -133,10 +141,11 @@ mod tests {
 
         let puzzle = Puzzle::new(tsumego);
 
-        let solution = puzzle.solve::<Profile>();
+        let solution =
+            puzzle.solve::<Profile>(Rc::new(MoveRanker::new(Path::new("network/model"))));
 
         assert!(solution.won);
-        assert_display_snapshot!(solution.profiler.visited_nodes, @"1657");
+        assert_display_snapshot!(solution.profiler.visited_nodes, @"1107");
         assert_display_snapshot!(solution.profiler.max_depth, @"7");
         assert_snapshot!(show_principle_variation(&puzzle, &solution));
     }
@@ -147,10 +156,11 @@ mod tests {
 
         let puzzle = Puzzle::new(tsumego);
 
-        let solution = puzzle.solve::<Profile>();
+        let solution =
+            puzzle.solve::<Profile>(Rc::new(MoveRanker::new(Path::new("network/model"))));
 
         assert!(solution.won);
-        assert_display_snapshot!(solution.profiler.visited_nodes, @"1490");
+        assert_display_snapshot!(solution.profiler.visited_nodes, @"1203");
         assert_display_snapshot!(solution.profiler.max_depth, @"8");
         assert_snapshot!(show_principle_variation(&puzzle, &solution));
     }
@@ -161,10 +171,11 @@ mod tests {
 
         let puzzle = Puzzle::new(tsumego);
 
-        let solution = puzzle.solve::<Profile>();
+        let solution =
+            puzzle.solve::<Profile>(Rc::new(MoveRanker::new(Path::new("network/model"))));
 
         assert!(solution.won);
-        assert_display_snapshot!(solution.profiler.visited_nodes, @"31143");
+        assert_display_snapshot!(solution.profiler.visited_nodes, @"31909");
         assert_display_snapshot!(solution.profiler.max_depth, @"7");
         assert_snapshot!(show_principle_variation(&puzzle, &solution));
     }
@@ -189,7 +200,8 @@ mod tests {
 
         let puzzle = Puzzle::new(tsumego);
 
-        let solution = puzzle.solve::<Profile>();
+        let solution =
+            puzzle.solve::<Profile>(Rc::new(MoveRanker::new(Path::new("network/model"))));
 
         assert!(solution.won);
         assert_display_snapshot!(solution.profiler.visited_nodes, @"5");
@@ -203,10 +215,11 @@ mod tests {
 
         let puzzle = Puzzle::new(tsumego);
 
-        let solution = puzzle.solve::<Profile>();
+        let solution =
+            puzzle.solve::<Profile>(Rc::new(MoveRanker::new(Path::new("network/model"))));
 
         assert!(solution.won);
-        assert_display_snapshot!(solution.profiler.visited_nodes, @"1939");
+        assert_display_snapshot!(solution.profiler.visited_nodes, @"625");
         assert_display_snapshot!(solution.profiler.max_depth, @"8");
         assert_snapshot!(show_principle_variation(&puzzle, &solution));
     }

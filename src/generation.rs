@@ -2,9 +2,9 @@ mod candidate;
 mod validation;
 
 use crate::go::{GoBoard, GoPlayer};
-use crate::puzzle::{Profiler, Solution};
+use crate::puzzle::{MoveRanker, Profiler, Solution};
 pub use candidate::generate_candidate;
-use std::time::Duration;
+use std::{rc::Rc, time::Duration};
 pub use validation::validate_candidate;
 
 pub struct GeneratedPuzzle<P: Profiler> {
@@ -22,13 +22,17 @@ impl<P: Profiler> GeneratedPuzzle<P> {
     }
 }
 
-pub fn generate_puzzle<P: Profiler>(timeout: Duration) -> GeneratedPuzzle<P> {
+pub fn generate_puzzle<P: Profiler>(
+    timeout: Duration,
+    move_ranker: Rc<MoveRanker>,
+) -> GeneratedPuzzle<P> {
     let mut rng = rand::thread_rng();
 
     loop {
         let candidate = generate_candidate(&mut rng);
 
-        if let Some((white_solution, black_solution)) = validate_candidate::<P>(candidate, timeout)
+        if let Some((white_solution, black_solution)) =
+            validate_candidate::<P>(candidate, timeout, move_ranker.clone())
         {
             return GeneratedPuzzle {
                 board: candidate,

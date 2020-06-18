@@ -312,6 +312,26 @@ impl Iterator for MovesIncPassIterator {
     }
 }
 
+pub struct OrderedMovesIterator {
+    game: GoGame,
+    remaining_moves: Vec<Move>,
+}
+
+impl Iterator for OrderedMovesIterator {
+    type Item = (GoGame, Move);
+    fn next(&mut self) -> Option<Self::Item> {
+        loop {
+            if let Some(go_move) = self.remaining_moves.pop() {
+                if let Ok(new_game) = self.game.play_move(go_move) {
+                    return Some((new_game, go_move));
+                }
+            } else {
+                return None;
+            }
+        }
+    }
+}
+
 impl GoGame {
     pub fn empty() -> GoGame {
         GoGame {
@@ -428,6 +448,13 @@ impl GoGame {
         MovesIncPassIterator {
             moves_iterator: self.generate_moves(),
             passed: false,
+        }
+    }
+
+    pub fn generate_ordered_moves(&self, order: Vec<Move>) -> OrderedMovesIterator {
+        OrderedMovesIterator {
+            game: *self,
+            remaining_moves: order,
         }
     }
 }

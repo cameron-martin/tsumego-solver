@@ -56,8 +56,8 @@ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
 _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
 
 
-black: (9, 0)
-_ _ w w b w . b . b . . w _ _ _
+black: (10, 0)
+_ _ w w b w . b . . b . w _ _ _
 _ _ w w b b b . b b b w w _ _ _
 _ _ _ w w w w b w w w w _ _ _ _
 _ _ _ _ _ _ w . w _ _ _ _ _ _ _
@@ -67,8 +67,8 @@ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
 _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
 
 
-white: (10, 0)
-_ _ w w b w . b . b w . w _ _ _
+white: (8, 0)
+_ _ w w b w . b w . b . w _ _ _
 _ _ w w b b b . b b b w w _ _ _
 _ _ _ w w w w b w w w w _ _ _ _
 _ _ _ _ _ _ w . w _ _ _ _ _ _ _
@@ -79,7 +79,7 @@ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
 
 
 black: (7, 1)
-_ _ w w b w . b . b w . w _ _ _
+_ _ w w b w . b w . b . w _ _ _
 _ _ w w b b b b b b b w w _ _ _
 _ _ _ w w w w b w w w w _ _ _ _
 _ _ _ _ _ _ w . w _ _ _ _ _ _ _

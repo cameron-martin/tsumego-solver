@@ -1,9 +1,9 @@
 use super::{
-    abort_controller::AbortController, solving_session::SolvingSession, terminal_detection,
-    Profiler,
+    abort_controller::AbortController, move_ranker::MoveRanker, solving_session::SolvingSession,
+    terminal_detection, Profiler,
 };
 use crate::go::{BoardPosition, GoGame, Move};
-use std::iter;
+use std::{iter, path::Path};
 
 // Stores the state associated with an iteration of the iterative deepening algorithm
 pub struct SolvingIteration<'a, C: AbortController, P: Profiler> {
@@ -80,7 +80,10 @@ impl<'a, C: AbortController, P: Profiler> SolvingIteration<'a, C, P> {
         let child_variations_index = variations_index + this_variation_size;
 
         let mut m = -std::i8::MAX;
-        for (child, go_move) in node.generate_moves_including_pass() {
+        // TODO: Make mode_dir a parameter
+        for (child, go_move) in
+            node.generate_ordered_moves(self.session.move_ranker.order_moves(node))
+        {
             if self.session.parents.contains(&child) {
                 continue;
             }

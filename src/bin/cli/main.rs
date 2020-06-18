@@ -23,6 +23,13 @@ fn main() -> io::Result<()> {
                         .long("threads")
                         .default_value("8")
                         .takes_value(true),
+                )
+                .arg(
+                    Arg::with_name("model")
+                        .help("The directory of the move ordering model")
+                        .long("model")
+                        .default_value("network/model")
+                        .takes_value(true),
                 ),
         )
         .setting(AppSettings::ArgRequiredElseHelp)
@@ -32,10 +39,12 @@ fn main() -> io::Result<()> {
         ("generate", Some(matches)) => {
             let output_directory = matches.value_of("out").unwrap();
             let thread_count = matches.value_of("threads").unwrap();
+            let model_dir = matches.value_of("model").unwrap();
 
             generate::run(
                 Path::new(output_directory),
                 str::parse(thread_count).unwrap(),
+                model_dir,
             )
         }
         _ => Ok(()),

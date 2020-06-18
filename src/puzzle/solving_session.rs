@@ -1,23 +1,30 @@
 use super::{
-    abort_controller::AbortController, solving_iteration::SolvingIteration, Profiler, Puzzle,
+    abort_controller::AbortController, move_ranker::MoveRanker,
+    solving_iteration::SolvingIteration, Profiler, Puzzle,
 };
 use crate::go::GoGame;
-use std::collections::HashSet;
+use std::{collections::HashSet, rc::Rc};
 
 pub struct SolvingSession<C: AbortController, P: Profiler> {
     pub puzzle: Puzzle,
+    pub move_ranker: Rc<MoveRanker>,
     pub parents: HashSet<GoGame>,
     pub profiler: P,
     pub abort_controller: C,
 }
 
-impl<C: AbortController, P: Profiler> SolvingSession<C, P> {
-    pub fn new(puzzle: Puzzle, abort_controller: C) -> SolvingSession<C, P> {
+impl<'s, C: AbortController, P: Profiler> SolvingSession<C, P> {
+    pub fn new(
+        puzzle: Puzzle,
+        abort_controller: C,
+        move_ranker: Rc<MoveRanker>,
+    ) -> SolvingSession<C, P> {
         SolvingSession {
             parents: HashSet::new(),
             profiler: P::new(),
             puzzle,
             abort_controller,
+            move_ranker,
         }
     }
 

@@ -6,6 +6,7 @@ import numpy as np
 import os
 from network.decode import decode
 import datetime
+from pathlib import Path
 
 log_dir = "logs/fit/" + datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
 tensorboard_callback = keras.callbacks.TensorBoard(log_dir=log_dir, histogram_freq=1, write_images=True)
@@ -33,4 +34,9 @@ model.summary()
 
 model.compile(optimizer=keras.optimizers.Adam(), loss=keras.losses.CategoricalCrossentropy(from_logits=True), metrics=[keras.metrics.CategoricalAccuracy()])
 
-model.fit(images, labels, epochs=100, validation_split=0.2, callbacks=[tensorboard_callback])
+model.fit(images, labels, epochs=100, validation_split=0.2, callbacks=[
+    tensorboard_callback,
+    keras.callbacks.EarlyStopping(patience=10)
+])
+
+model.save(Path(__file__).parent.parent / 'model')

@@ -3,6 +3,7 @@ use std::{
     io,
     io::Write,
     path::Path,
+    rc::Rc,
     sync::mpsc::channel,
     thread,
     time::Duration,
@@ -10,7 +11,7 @@ use std::{
 use tsumego_solver::{
     generation::{generate_puzzle, GeneratedPuzzle},
     go::{GoBoard, GoGame, GoPlayer, Move},
-    puzzle::{NoProfile, Solution},
+    puzzle::{MoveRanker, NoProfile, Solution},
 };
 
 fn extract_examples(
@@ -58,16 +59,23 @@ fn write_examples(puzzle: &GeneratedPuzzle<NoProfile>, file: &mut File) -> io::R
     Ok(())
 }
 
-pub fn run(output_directory: &Path, thread_count: u8) -> io::Result<()> {
+pub fn run(output_directory: &Path, thread_count: u8, model_dir: &str) -> io::Result<()> {
     fs::create_dir_all(output_directory)?;
 
     let (tx, rx) = channel();
 
     for _ in 0..thread_count {
         let tx = tx.clone();
-        thread::spawn(move || loop {
-            let puzzle = generate_puzzle::<NoProfile>(Duration::from_secs(1));
-            tx.send(puzzle).unwrap();
+        let model_dir = String::from(model_dir);
+
+        thread::spawn(move || {
+            let move_ranker = Rc::new(MoveRanker::new(Path::new(&model_dir)));
+
+            loop {
+                let puzzle =
+                    generate_puzzle::<NoProfile>(Duration::from_secs(1), move_ranker.clone());
+                tx.send(puzzle).unwrap();
+            }
         });
     }
 
