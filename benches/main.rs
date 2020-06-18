@@ -26,7 +26,7 @@ fn playing_moves(c: &mut Criterion) {
     group.bench_function("generating all moves", |b| {
         b.iter_batched(
             || GoGame::from_sgf(include_str!("../src/test_sgfs/puzzles/true_simple1.sgf")),
-            |game| game.generate_moves(),
+            |game| game.generate_moves().collect::<Vec<_>>(),
             BatchSize::SmallInput,
         )
     });
@@ -63,6 +63,47 @@ fn unconditional_life(c: &mut Criterion) {
                 ))
             },
             |game| game.board.unconditionally_alive_blocks(),
+            BatchSize::SmallInput,
+        )
+    });
+}
+
+fn ordering_moves(c: &mut Criterion) {
+    let mut group = c.benchmark_group("ordering moves");
+
+    let move_ranker = Rc::new(MoveRanker::new(
+        &Path::new(file!())
+            .parent()
+            .unwrap()
+            .parent()
+            .unwrap()
+            .join("network")
+            .join("model"),
+    ));
+
+    group.bench_function("doing the ordering", |b| {
+        b.iter_batched(
+            || {
+                GoGame::from_sgf(include_str!(
+                    "../src/test_sgfs/puzzles/true_ultrasimple1.sgf"
+                ))
+            },
+            |game| move_ranker.order_moves(game),
+            BatchSize::SmallInput,
+        )
+    });
+
+    group.bench_function("generating ordered moves", |b| {
+        b.iter_batched(
+            || {
+                GoGame::from_sgf(include_str!(
+                    "../src/test_sgfs/puzzles/true_ultrasimple1.sgf"
+                ))
+            },
+            |game| {
+                game.generate_ordered_moves(move_ranker.order_moves(game))
+                    .collect::<Vec<_>>()
+            },
             BatchSize::SmallInput,
         )
     });
@@ -147,5 +188,11 @@ fn solving_puzzles(c: &mut Criterion) {
     });
 }
 
-criterion_group!(benches, playing_moves, unconditional_life, solving_puzzles);
+criterion_group!(
+    benches,
+    playing_moves,
+    unconditional_life,
+    ordering_moves,
+    solving_puzzles
+);
 criterion_main!(benches);

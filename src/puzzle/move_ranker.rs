@@ -62,23 +62,22 @@ impl MoveRanker {
 
         let result_tensor = args.fetch::<f32>(result_token).unwrap();
 
-        let mut result_vec = Vec::with_capacity(129);
+        let mut moves = Vec::new();
 
-        for i in 0..128 {
-            result_vec.push((
-                result_tensor.get(&[0, i]),
-                Move::Place(BoardPosition(i as u8)),
-            ));
+        for position in game.board.playable_cells().positions() {
+            moves.push(Move::Place(position));
         }
 
-        result_vec.push((result_tensor.get(&[0, 128]), Move::Pass));
+        moves.push(Move::Pass);
 
-        result_vec.sort_by(|(weight1, _), (weight2, _)| weight1.partial_cmp(weight2).unwrap());
+        moves.sort_by(|move1, move2| {
+            result_tensor
+                .get(&[0, move1.index() as u64])
+                .partial_cmp(&result_tensor.get(&[0, move2.index() as u64]))
+                .unwrap()
+        });
 
-        result_vec
-            .iter()
-            .map(|(weight, go_move)| *go_move)
-            .collect()
+        moves
     }
 }
 

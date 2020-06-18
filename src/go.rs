@@ -26,10 +26,14 @@ impl Display for Move {
 
 impl Move {
     pub fn serialise(self) -> [u8; 1] {
-        [match self {
+        [self.index()]
+    }
+
+    pub fn index(self) -> u8 {
+        match self {
             Move::Pass => 128,
             Move::Place(position) => position.0,
-        }]
+        }
     }
 }
 
@@ -115,6 +119,11 @@ impl GoBoard {
     /// Empty cells, including out of bounds
     pub fn empty_cells(&self) -> BitBoard {
         !(self.white ^ self.black)
+    }
+
+    /// Empty cells, excluding out of bounds
+    pub fn playable_cells(&self) -> BitBoard {
+        !(self.white | self.black)
     }
 
     pub fn out_of_bounds(&self) -> BitBoard {
@@ -440,7 +449,7 @@ impl GoGame {
     pub fn generate_moves(&self) -> MovesIterator {
         MovesIterator {
             game: *self,
-            remaining_positions: (!(self.board.white | self.board.black)).positions(),
+            remaining_positions: self.board.playable_cells().positions(),
         }
     }
 
