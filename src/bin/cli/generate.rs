@@ -36,6 +36,7 @@ fn extract_examples(
 
             Some(example)
         })
+        .step_by(2)
         .collect()
 }
 
