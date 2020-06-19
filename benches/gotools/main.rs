@@ -2,7 +2,7 @@ extern crate pest;
 
 use std::fs;
 use std::path::Path;
-use tsumego_solver::gotools_parser;
+use tsumego_solver::{gotools_parser, puzzle::NoProfile};
 
 use gotools_parser::PuzzleCollection;
 use std::borrow::Borrow;
@@ -25,9 +25,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let mut solved_count = 0;
 
     for puzzle in puzzles.valid_puzzles.iter_mut() {
-        let solved = puzzle.solve_with_timeout(Duration::from_millis(10));
-
-        if solved {
+        if let Some(_solution) = puzzle.solve_with_timeout::<NoProfile>(Duration::from_millis(10)) {
             solved_count += 1;
         }
     }

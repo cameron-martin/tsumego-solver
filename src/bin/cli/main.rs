@@ -1,4 +1,3 @@
-mod explore;
 mod generate;
 
 use clap::{App, AppSettings, Arg, SubCommand};
@@ -7,18 +6,6 @@ use std::path::Path;
 
 fn main() -> io::Result<()> {
     let matches = App::new("Tsumego Solver")
-        .subcommand(
-            SubCommand::with_name("explore")
-                .about("Explore the game tree of a single puzzle")
-                .arg(
-                    Arg::with_name("file")
-                        .help("The SGF file to load")
-                        .short("f")
-                        .long("file")
-                        .required(true)
-                        .takes_value(true),
-                ),
-        )
         .subcommand(
             SubCommand::with_name("generate")
                 .about("Generate puzzles and output them as SGF files")
@@ -36,26 +23,28 @@ fn main() -> io::Result<()> {
                         .long("threads")
                         .default_value("8")
                         .takes_value(true),
+                )
+                .arg(
+                    Arg::with_name("model")
+                        .help("The directory of the move ordering model")
+                        .long("model")
+                        .default_value("network/model")
+                        .takes_value(true),
                 ),
         )
         .setting(AppSettings::ArgRequiredElseHelp)
         .get_matches();
 
     match matches.subcommand() {
-        ("explore", Some(matches)) => {
-            let filename = matches.value_of("file").unwrap();
-
-            explore::run(filename);
-
-            Ok(())
-        }
         ("generate", Some(matches)) => {
             let output_directory = matches.value_of("out").unwrap();
             let thread_count = matches.value_of("threads").unwrap();
+            let model_dir = matches.value_of("model").unwrap();
 
             generate::run(
                 Path::new(output_directory),
                 str::parse(thread_count).unwrap(),
+                model_dir,
             )
         }
         _ => Ok(()),

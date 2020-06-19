@@ -1,6 +1,6 @@
 use crate::{
     go::{BoardCell, BoardPosition, GoBoard, GoGame, GoPlayer},
-    puzzle::{NoProfile, Puzzle},
+    puzzle::Puzzle,
 };
 use pest::{iterators::Pair, Parser};
 use std::error::Error;
@@ -29,7 +29,7 @@ impl StoneSet {
 
 pub struct PuzzleCollection {
     pub total_puzzles: u32,
-    pub valid_puzzles: Vec<Puzzle<NoProfile>>,
+    pub valid_puzzles: Vec<Puzzle>,
 }
 
 impl PuzzleCollection {
@@ -50,7 +50,7 @@ fn char_to_int(character: char) -> u8 {
     (character as u8) - ('A' as u8)
 }
 
-fn read_puzzle(pair: Pair<Rule>) -> Option<Puzzle<NoProfile>> {
+fn read_puzzle(pair: Pair<Rule>) -> Option<Puzzle> {
     let puzzle_definition = pair
         .into_inner()
         .find(|inner_pair| inner_pair.as_rule() == Rule::puzzle_definition)
@@ -145,7 +145,7 @@ mod tests {
         let mut string = String::new();
 
         for puzzle in puzzles.valid_puzzles {
-            string.push_str(format!("{}\n", puzzle.current_game().board).borrow());
+            string.push_str(&format!("{}\n", puzzle.game.board));
         }
 
         assert_snapshot!(string);

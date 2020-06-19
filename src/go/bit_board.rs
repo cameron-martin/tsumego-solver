@@ -3,7 +3,7 @@ use std::fmt::{Debug, Display, Formatter};
 use std::ops::{BitAnd, BitOr, BitXor, Not};
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
-pub struct BoardPosition(u8);
+pub struct BoardPosition(pub(crate) u8);
 
 impl BoardPosition {
     pub fn new(column: u8, row: u8) -> BoardPosition {
@@ -90,6 +90,10 @@ impl BitBoard {
 
     pub fn from_uint(int: u128) -> BitBoard {
         BitBoard(int)
+    }
+
+    pub fn to_uint(self) -> u128 {
+        self.0
     }
 
     pub fn top_edge() -> BitBoard {
@@ -197,6 +201,10 @@ impl BitBoard {
 
     pub fn count(self) -> u32 {
         self.0.count_ones()
+    }
+
+    pub fn serialise(self) -> [u8; 16] {
+        self.0.to_be_bytes()
     }
 }
 

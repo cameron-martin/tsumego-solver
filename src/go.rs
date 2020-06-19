@@ -1,7 +1,7 @@
 mod benson;
 mod bit_board;
 mod sgf_conversion;
-pub use bit_board::{BitBoard, BoardPosition};
+pub use bit_board::{BitBoard, BitBoardPositionIterator, BoardPosition};
 use std::collections::hash_map::DefaultHasher;
 use std::fmt;
 use std::fmt::Debug;
@@ -20,6 +20,19 @@ impl Display for Move {
         match self {
             Move::Pass => f.write_str("Pass"),
             Move::Place(position) => f.write_fmt(format_args!("{}", position)),
+        }
+    }
+}
+
+impl Move {
+    pub fn serialise(self) -> [u8; 1] {
+        [self.index()]
+    }
+
+    pub fn index(self) -> u8 {
+        match self {
+            Move::Pass => 128,
+            Move::Place(position) => position.0,
         }
     }
 }
@@ -106,6 +119,11 @@ impl GoBoard {
     /// Empty cells, including out of bounds
     pub fn empty_cells(&self) -> BitBoard {
         !(self.white ^ self.black)
+    }
+
+    /// Empty cells, excluding out of bounds
+    pub fn playable_cells(&self) -> BitBoard {
+        !(self.white | self.black)
     }
 
     pub fn out_of_bounds(&self) -> BitBoard {
@@ -203,7 +221,9 @@ impl GoBoard {
         self.set_bitboard_for_player(player, stones_with_liberties);
     }
 
-    pub fn has_dead_groups(&self) -> bool {
+    /// Determines whether captured groups exist on the board that haven't been removed.
+    /// This is an invalid state for the board to be in.
+    pub fn has_captured_groups(&self) -> bool {
         GoPlayer::both().any(|&player| {
             let alive_groups = self.get_alive_groups_for_player(player);
 
@@ -226,6 +246,13 @@ impl GoBoard {
         self.hash(&mut hasher);
 
         hasher.finish()
+    }
+
+    pub fn invert_colours(&self) -> Self {
+        GoBoard {
+            black: self.white,
+            white: self.black,
+        }
     }
 }
 
@@ -251,6 +278,67 @@ pub enum MoveError {
     OutOfTurn,
     Suicidal,
     Ko,
+}
+
+pub struct MovesIterator {
+    game: GoGame,
+    remaining_positions: BitBoardPositionIterator,
+}
+
+impl Iterator for MovesIterator {
+    type Item = (GoGame, Move);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        while let Some(position) = self.remaining_positions.next() {
+            if let Ok(game) = self.game.play_placing_move(position) {
+                return Some((game, Move::Place(position)));
+            }
+        }
+
+        None
+    }
+}
+
+pub struct MovesIncPassIterator {
+    moves_iterator: MovesIterator,
+    passed: bool,
+}
+
+impl Iterator for MovesIncPassIterator {
+    type Item = (GoGame, Move);
+    fn next(&mut self) -> Option<Self::Item> {
+        if let Some(item) = self.moves_iterator.next() {
+            Some(item)
+        } else if !self.passed {
+            let item = (self.moves_iterator.game.pass(), Move::Pass);
+
+            self.passed = true;
+
+            Some(item)
+        } else {
+            None
+        }
+    }
+}
+
+pub struct OrderedMovesIterator {
+    game: GoGame,
+    remaining_moves: Vec<Move>,
+}
+
+impl Iterator for OrderedMovesIterator {
+    type Item = (GoGame, Move);
+    fn next(&mut self) -> Option<Self::Item> {
+        loop {
+            if let Some(go_move) = self.remaining_moves.pop() {
+                if let Ok(new_game) = self.game.play_move(go_move) {
+                    return Some((new_game, go_move));
+                }
+            } else {
+                return None;
+            }
+        }
+    }
 }
 
 impl GoGame {
@@ -358,24 +446,25 @@ impl GoGame {
         }
     }
 
-    pub fn generate_moves(&self) -> Vec<(GoGame, Move)> {
-        let mut games = Vec::new();
-
-        for position in (!(self.board.white | self.board.black)).positions() {
-            if let Ok(game) = self.play_placing_move(position) {
-                games.push((game, Move::Place(position)));
-            }
+    pub fn generate_moves(&self) -> MovesIterator {
+        MovesIterator {
+            game: *self,
+            remaining_positions: self.board.playable_cells().positions(),
         }
-
-        games
     }
 
-    pub fn generate_moves_including_pass(&self) -> Vec<(GoGame, Move)> {
-        let mut games = self.generate_moves();
+    pub fn generate_moves_including_pass(&self) -> MovesIncPassIterator {
+        MovesIncPassIterator {
+            moves_iterator: self.generate_moves(),
+            passed: false,
+        }
+    }
 
-        games.push((self.pass(), Move::Pass));
-
-        games
+    pub fn generate_ordered_moves(&self, order: Vec<Move>) -> OrderedMovesIterator {
+        OrderedMovesIterator {
+            game: *self,
+            remaining_moves: order,
+        }
     }
 }
 
@@ -514,7 +603,7 @@ mod tests {
         let game = GoGame::from_sgf(include_str!("test_sgfs/puzzles/true_simple1.sgf"));
         let moves = game.generate_moves();
 
-        assert_eq!(moves.len(), 5);
+        assert_eq!(moves.collect::<Vec<_>>().len(), 5);
     }
 
     #[test]
@@ -543,7 +632,7 @@ mod tests {
     }
 
     #[test]
-    fn has_dead_groups_black() {
+    fn has_captured_groups_black() {
         let mut game = GoBoard::empty();
         game.set_cell(
             BoardPosition::new(0, 0),
@@ -558,11 +647,11 @@ mod tests {
             BoardCell::Occupied(GoPlayer::White),
         );
 
-        assert!(game.has_dead_groups());
+        assert!(game.has_captured_groups());
     }
 
     #[test]
-    fn has_dead_groups_white() {
+    fn has_captured_groups_white() {
         let mut game = GoBoard::empty();
         game.set_cell(
             BoardPosition::new(0, 0),
@@ -577,11 +666,11 @@ mod tests {
             BoardCell::Occupied(GoPlayer::Black),
         );
 
-        assert!(game.has_dead_groups());
+        assert!(game.has_captured_groups());
     }
 
     #[test]
-    fn has_dead_groups_false() {
+    fn has_captured_groups_false() {
         let mut game = GoBoard::empty();
         game.set_cell(
             BoardPosition::new(0, 1),
@@ -592,7 +681,7 @@ mod tests {
             BoardCell::Occupied(GoPlayer::White),
         );
 
-        assert!(!game.has_dead_groups());
+        assert!(!game.has_captured_groups());
     }
 
     #[test]

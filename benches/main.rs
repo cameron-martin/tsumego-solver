@@ -1,7 +1,8 @@
 use criterion::{black_box, criterion_group, criterion_main, BatchSize, Criterion};
+use std::{path::Path, rc::Rc};
 use tsumego_solver::go::{BoardPosition, GoGame, Move};
 use tsumego_solver::puzzle::NoProfile;
-use tsumego_solver::puzzle::Puzzle;
+use tsumego_solver::puzzle::{MoveRanker, Puzzle};
 
 fn playing_moves(c: &mut Criterion) {
     let mut group = c.benchmark_group("playing moves");
@@ -25,7 +26,7 @@ fn playing_moves(c: &mut Criterion) {
     group.bench_function("generating all moves", |b| {
         b.iter_batched(
             || GoGame::from_sgf(include_str!("../src/test_sgfs/puzzles/true_simple1.sgf")),
-            |game| game.generate_moves(),
+            |game| game.generate_moves().collect::<Vec<_>>(),
             BatchSize::SmallInput,
         )
     });
@@ -67,17 +68,68 @@ fn unconditional_life(c: &mut Criterion) {
     });
 }
 
+fn ordering_moves(c: &mut Criterion) {
+    let mut group = c.benchmark_group("ordering moves");
+
+    let move_ranker = Rc::new(MoveRanker::new(
+        &Path::new(file!())
+            .parent()
+            .unwrap()
+            .parent()
+            .unwrap()
+            .join("network")
+            .join("model"),
+    ));
+
+    group.bench_function("doing the ordering", |b| {
+        b.iter_batched(
+            || {
+                GoGame::from_sgf(include_str!(
+                    "../src/test_sgfs/puzzles/true_ultrasimple1.sgf"
+                ))
+            },
+            |game| move_ranker.order_moves(game),
+            BatchSize::SmallInput,
+        )
+    });
+
+    group.bench_function("generating ordered moves", |b| {
+        b.iter_batched(
+            || {
+                GoGame::from_sgf(include_str!(
+                    "../src/test_sgfs/puzzles/true_ultrasimple1.sgf"
+                ))
+            },
+            |game| {
+                game.generate_ordered_moves(move_ranker.order_moves(game))
+                    .collect::<Vec<_>>()
+            },
+            BatchSize::SmallInput,
+        )
+    });
+}
+
 fn solving_puzzles(c: &mut Criterion) {
     let mut ultra_simple = c.benchmark_group("solving puzzles (ultrasimple)");
+
+    let move_ranker = Rc::new(MoveRanker::new(
+        &Path::new(file!())
+            .parent()
+            .unwrap()
+            .parent()
+            .unwrap()
+            .join("network")
+            .join("model"),
+    ));
 
     ultra_simple.bench_function("1", |b| {
         b.iter_batched(
             || {
-                Puzzle::<NoProfile>::from_sgf(include_str!(
+                Puzzle::from_sgf(include_str!(
                     "../src/test_sgfs/puzzles/true_ultrasimple1.sgf"
                 ))
             },
-            |mut puzzle| puzzle.solve(),
+            |puzzle| puzzle.solve::<NoProfile>(move_ranker.clone()),
             BatchSize::SmallInput,
         )
     });
@@ -85,11 +137,11 @@ fn solving_puzzles(c: &mut Criterion) {
     ultra_simple.bench_function("2", |b| {
         b.iter_batched(
             || {
-                Puzzle::<NoProfile>::from_sgf(include_str!(
+                Puzzle::from_sgf(include_str!(
                     "../src/test_sgfs/puzzles/true_ultrasimple2.sgf"
                 ))
             },
-            |mut puzzle| puzzle.solve(),
+            |puzzle| puzzle.solve::<NoProfile>(move_ranker.clone()),
             BatchSize::SmallInput,
         )
     });
@@ -100,36 +152,24 @@ fn solving_puzzles(c: &mut Criterion) {
 
     simple.bench_function("1", |b| {
         b.iter_batched(
-            || {
-                Puzzle::<NoProfile>::from_sgf(include_str!(
-                    "../src/test_sgfs/puzzles/true_simple1.sgf"
-                ))
-            },
-            |mut puzzle| puzzle.solve(),
+            || Puzzle::from_sgf(include_str!("../src/test_sgfs/puzzles/true_simple1.sgf")),
+            |puzzle| puzzle.solve::<NoProfile>(move_ranker.clone()),
             BatchSize::SmallInput,
         )
     });
 
     simple.bench_function("2", |b| {
         b.iter_batched(
-            || {
-                Puzzle::<NoProfile>::from_sgf(include_str!(
-                    "../src/test_sgfs/puzzles/true_simple2.sgf"
-                ))
-            },
-            |mut puzzle| puzzle.solve(),
+            || Puzzle::from_sgf(include_str!("../src/test_sgfs/puzzles/true_simple2.sgf")),
+            |puzzle| puzzle.solve::<NoProfile>(move_ranker.clone()),
             BatchSize::SmallInput,
         )
     });
 
     simple.bench_function("3", |b| {
         b.iter_batched(
-            || {
-                Puzzle::<NoProfile>::from_sgf(include_str!(
-                    "../src/test_sgfs/puzzles/true_simple3.sgf"
-                ))
-            },
-            |mut puzzle| puzzle.solve(),
+            || Puzzle::from_sgf(include_str!("../src/test_sgfs/puzzles/true_simple3.sgf")),
+            |puzzle| puzzle.solve::<NoProfile>(move_ranker.clone()),
             BatchSize::SmallInput,
         )
     });
@@ -141,16 +181,18 @@ fn solving_puzzles(c: &mut Criterion) {
 
     medium.bench_function("1", |b| {
         b.iter_batched(
-            || {
-                Puzzle::<NoProfile>::from_sgf(include_str!(
-                    "../src/test_sgfs/puzzles/true_medium1.sgf"
-                ))
-            },
-            |mut puzzle| puzzle.solve(),
+            || Puzzle::from_sgf(include_str!("../src/test_sgfs/puzzles/true_medium1.sgf")),
+            |puzzle| puzzle.solve::<NoProfile>(move_ranker.clone()),
             BatchSize::SmallInput,
         )
     });
 }
 
-criterion_group!(benches, playing_moves, unconditional_life, solving_puzzles);
+criterion_group!(
+    benches,
+    playing_moves,
+    unconditional_life,
+    ordering_moves,
+    solving_puzzles
+);
 criterion_main!(benches);

@@ -1,20 +1,28 @@
 use crate::go::{GoBoard, GoGame, GoPlayer};
-use crate::puzzle::Profiler;
-use crate::puzzle::Puzzle;
-use std::time::Duration;
+use crate::puzzle::{MoveRanker, Profiler, Puzzle, Solution};
+use std::{rc::Rc, time::Duration};
 
-pub fn validate_candidate<P: Profiler>(candidate: GoBoard, timeout: Duration) -> bool {
-    if candidate.has_dead_groups() {
-        return false;
+pub fn validate_candidate<P: Profiler>(
+    candidate: GoBoard,
+    timeout: Duration,
+    move_ranker: Rc<MoveRanker>,
+) -> Option<(Solution<P>, Solution<P>)> {
+    if candidate.has_captured_groups() {
+        return None;
     }
 
-    GoPlayer::both().all(|first_player| {
-        let mut puzzle = Puzzle::<P>::new(GoGame::from_board(candidate, *first_player));
+    let solve_puzzle = |player: GoPlayer| {
+        Puzzle::new(GoGame::from_board(candidate, player))
+            .solve_with_timeout::<P>(timeout, move_ranker.clone())
+    };
 
-        if !puzzle.solve_with_timeout(timeout) {
-            return false;
+    if let Some(white_solution) = solve_puzzle(GoPlayer::White) {
+        if let Some(black_solution) = solve_puzzle(GoPlayer::Black) {
+            if white_solution.won && black_solution.won {
+                return Some((white_solution, black_solution));
+            }
         }
+    }
 
-        puzzle.is_proved()
-    })
+    None
 }
