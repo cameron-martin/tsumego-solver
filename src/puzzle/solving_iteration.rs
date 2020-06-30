@@ -1,19 +1,28 @@
 use super::{
-    abort_controller::AbortController, move_ranker::MoveRanker, solving_session::SolvingSession,
-    terminal_detection, Profiler,
+    abort_controller::AbortController, example_collector::ExampleCollector,
+    move_ranker::MoveRanker, solving_session::SolvingSession, terminal_detection, Profiler,
 };
 use crate::go::{BoardPosition, GoGame, Move};
 use std::{iter, path::Path};
 
 // Stores the state associated with an iteration of the iterative deepening algorithm
-pub struct SolvingIteration<'a, C: AbortController, P: Profiler> {
+pub struct SolvingIteration<
+    's,
+    'e,
+    C: AbortController,
+    P: Profiler,
+    E: ExampleCollector,
+    R: MoveRanker,
+> {
     max_depth: u8,
-    session: &'a mut SolvingSession<C, P>,
+    session: &'s mut SolvingSession<'e, C, P, E, R>,
     pub variations: Vec<Move>,
 }
 
-impl<'a, C: AbortController, P: Profiler> SolvingIteration<'a, C, P> {
-    pub fn new(max_depth: u8, session: &'a mut SolvingSession<C, P>) -> Self {
+impl<'a, 'b, C: AbortController, P: Profiler, E: ExampleCollector, R: MoveRanker>
+    SolvingIteration<'a, 'b, C, P, E, R>
+{
+    pub fn new(max_depth: u8, session: &'a mut SolvingSession<'b, C, P, E, R>) -> Self {
         let variations = iter::repeat(Move::Place(BoardPosition::new(0, 0)))
             .take((max_depth as usize * (max_depth as usize + 1)) / 2)
             .collect();
@@ -28,16 +37,18 @@ impl<'a, C: AbortController, P: Profiler> SolvingIteration<'a, C, P> {
     pub fn solve(&mut self) -> Option<i8> {
         let game = self.session.puzzle.game;
         self.session.parents.insert(game);
-        let result = self.negamax(game, -std::i8::MAX, std::i8::MAX, 0, 1, 0);
+        let result = self.negamax(game, -1, 1, 0, 1, 0);
         self.session.parents.remove(&game);
 
         result
     }
 
     pub fn principle_variation(mut self) -> Vec<Move> {
-        self.variations.truncate(self.max_depth as usize);
+        // self.variations.truncate(self.max_depth as usize);
 
-        self.variations
+        // self.variations
+
+        Vec::new()
     }
 
     fn negamax(
@@ -60,14 +71,7 @@ impl<'a, C: AbortController, P: Profiler> SolvingIteration<'a, C, P> {
             self.session.puzzle.player,
             self.session.puzzle.attacker,
         ) {
-            return Some(
-                is_maximising_player
-                    * if value {
-                        std::i8::MAX - depth as i8
-                    } else {
-                        -(std::i8::MAX - depth as i8)
-                    },
-            );
+            return Some(is_maximising_player * if value { 1 } else { -1 });
         }
 
         if depth == self.max_depth {
@@ -79,16 +83,14 @@ impl<'a, C: AbortController, P: Profiler> SolvingIteration<'a, C, P> {
         let child_variation_size = this_variation_size - 1;
         let child_variations_index = variations_index + this_variation_size;
 
-        let mut m = -std::i8::MAX;
+        let mut m = -1;
         // TODO: Make mode_dir a parameter
-        for (child, go_move) in
-            node.generate_ordered_moves(self.session.move_ranker.order_moves(node))
-        {
+        for (i, (child, go_move)) in self.session.move_ranker.order_moves(node).enumerate() {
             if self.session.parents.contains(&child) {
                 continue;
             }
-            self.session.parents.insert(child);
 
+            self.session.parents.insert(child);
             let t = -self.negamax(
                 child,
                 -beta,
@@ -102,6 +104,13 @@ impl<'a, C: AbortController, P: Profiler> SolvingIteration<'a, C, P> {
                 m = t;
             }
             if m >= beta {
+                if m != 0 {
+                    if i == 0 {
+                        self.session.profiler.order_success();
+                    } else {
+                        self.session.profiler.order_miss();
+                    }
+                }
                 break;
             }
 
@@ -109,15 +118,26 @@ impl<'a, C: AbortController, P: Profiler> SolvingIteration<'a, C, P> {
                 alpha = m;
 
                 // Update principal variation
-                self.variations[variations_index] = go_move;
+                // self.variations[variations_index] = go_move;
 
-                let (dst_arr, src_arr) = self.variations
-                    [variations_index + 1..child_variations_index + child_variation_size]
-                    .split_at_mut(child_variation_size);
-                for (dst, src) in dst_arr.iter_mut().zip(src_arr) {
-                    *dst = *src;
-                }
+                // let (dst_arr, src_arr) = self.variations
+                //     [variations_index + 1..child_variations_index + child_variation_size]
+                //     .split_at_mut(child_variation_size);
+                // for (dst, src) in dst_arr.iter_mut().zip(src_arr) {
+                //     *dst = *src;
+                // }
             }
+        }
+
+        if m != 0 {
+            self.session.example_collector.collect_example(
+                node,
+                if m > 0 {
+                    node.current_player
+                } else {
+                    node.current_player.flip()
+                },
+            );
         }
 
         Some(m)

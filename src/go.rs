@@ -321,26 +321,6 @@ impl Iterator for MovesIncPassIterator {
     }
 }
 
-pub struct OrderedMovesIterator {
-    game: GoGame,
-    remaining_moves: Vec<Move>,
-}
-
-impl Iterator for OrderedMovesIterator {
-    type Item = (GoGame, Move);
-    fn next(&mut self) -> Option<Self::Item> {
-        loop {
-            if let Some(go_move) = self.remaining_moves.pop() {
-                if let Ok(new_game) = self.game.play_move(go_move) {
-                    return Some((new_game, go_move));
-                }
-            } else {
-                return None;
-            }
-        }
-    }
-}
-
 impl GoGame {
     pub fn empty() -> GoGame {
         GoGame {
@@ -459,13 +439,6 @@ impl GoGame {
             passed: false,
         }
     }
-
-    pub fn generate_ordered_moves(&self, order: Vec<Move>) -> OrderedMovesIterator {
-        OrderedMovesIterator {
-            game: *self,
-            remaining_moves: order,
-        }
-    }
 }
 
 #[cfg(test)]
@@ -534,14 +507,20 @@ mod tests {
 
     #[test]
     fn single_groups_are_captured() {
-        let game = GoGame::from_sgf(include_str!("test_sgfs/single_groups_are_captured.sgf"));
+        let game = GoGame::from_sgf(
+            include_str!("test_sgfs/single_groups_are_captured.sgf"),
+            GoPlayer::Black,
+        );
 
         assert_eq!(game.get_cell(BoardPosition::new(0, 0)), BoardCell::Empty);
     }
 
     #[test]
     fn complex_groups_are_captured() {
-        let game = GoGame::from_sgf(include_str!("test_sgfs/complex_capture.sgf"));
+        let game = GoGame::from_sgf(
+            include_str!("test_sgfs/complex_capture.sgf"),
+            GoPlayer::Black,
+        );
         let game = game.play_placing_move(BoardPosition::new(11, 6)).unwrap();
 
         assert_eq!(
@@ -559,16 +538,20 @@ mod tests {
 
     #[test]
     fn capturing_has_precedence_over_suicide() {
-        let game = GoGame::from_sgf(include_str!(
-            "test_sgfs/capturing_has_precedence_over_suicide.sgf"
-        ));
+        let game = GoGame::from_sgf(
+            include_str!("test_sgfs/capturing_has_precedence_over_suicide.sgf"),
+            GoPlayer::Black,
+        );
 
         assert_eq!(game.get_cell(BoardPosition::new(1, 0)), BoardCell::Empty);
     }
 
     #[test]
     fn cannot_commit_suicide() {
-        let game = GoGame::from_sgf(include_str!("test_sgfs/cannot_commit_suicide.sgf"));
+        let game = GoGame::from_sgf(
+            include_str!("test_sgfs/cannot_commit_suicide.sgf"),
+            GoPlayer::Black,
+        );
         let result = game.play_placing_move(BoardPosition::new(0, 0));
 
         assert_eq!(result, Err(MoveError::Suicidal));
@@ -576,7 +559,10 @@ mod tests {
 
     #[test]
     fn ko_rule_simple() {
-        let game = GoGame::from_sgf(include_str!("test_sgfs/ko_rule_simple.sgf"));
+        let game = GoGame::from_sgf(
+            include_str!("test_sgfs/ko_rule_simple.sgf"),
+            GoPlayer::Black,
+        );
         let result = game.play_placing_move(BoardPosition::new(2, 2));
 
         assert_eq!(result, Err(MoveError::Ko));
@@ -584,14 +570,20 @@ mod tests {
 
     #[test]
     fn capture_two_recapture_one_not_ko_violation() {
-        let game = GoGame::from_sgf(include_str!("test_sgfs/capture_two_recapture_one.sgf"));
+        let game = GoGame::from_sgf(
+            include_str!("test_sgfs/capture_two_recapture_one.sgf"),
+            GoPlayer::Black,
+        );
 
         game.play_placing_move(BoardPosition::new(3, 2)).unwrap();
     }
 
     #[test]
     fn capturing_single_and_joining_group_does_not_trigger_ko() {
-        let game = GoGame::from_sgf(include_str!("test_sgfs/capture_single_join_group.sgf"));
+        let game = GoGame::from_sgf(
+            include_str!("test_sgfs/capture_single_join_group.sgf"),
+            GoPlayer::Black,
+        );
 
         let result = game.play_placing_move(BoardPosition::new(2, 1));
 
@@ -600,7 +592,10 @@ mod tests {
 
     #[test]
     fn out_of_bounds_moves_are_not_generated() {
-        let game = GoGame::from_sgf(include_str!("test_sgfs/puzzles/true_simple1.sgf"));
+        let game = GoGame::from_sgf(
+            include_str!("test_sgfs/puzzles/true_simple1.sgf"),
+            GoPlayer::Black,
+        );
         let moves = game.generate_moves();
 
         assert_eq!(moves.collect::<Vec<_>>().len(), 5);
@@ -608,7 +603,10 @@ mod tests {
 
     #[test]
     fn pass_sets_last_move_pass() {
-        let game = GoGame::from_sgf(include_str!("test_sgfs/ko_rule_simple.sgf"));
+        let game = GoGame::from_sgf(
+            include_str!("test_sgfs/ko_rule_simple.sgf"),
+            GoPlayer::Black,
+        );
         let game = game.pass();
 
         assert_eq!(game.pass_state, PassState::PassedOnce);
@@ -616,7 +614,10 @@ mod tests {
 
     #[test]
     fn move_clears_last_move_pass() {
-        let game = GoGame::from_sgf(include_str!("test_sgfs/ko_rule_simple.sgf"));
+        let game = GoGame::from_sgf(
+            include_str!("test_sgfs/ko_rule_simple.sgf"),
+            GoPlayer::Black,
+        );
         let game = game.pass();
         let game = game.play_placing_move(BoardPosition::new(13, 7)).unwrap();
 
@@ -625,7 +626,10 @@ mod tests {
 
     #[test]
     fn pass_advances_player() {
-        let game = GoGame::from_sgf(include_str!("test_sgfs/ko_rule_simple.sgf"));
+        let game = GoGame::from_sgf(
+            include_str!("test_sgfs/ko_rule_simple.sgf"),
+            GoPlayer::Black,
+        );
         let new_game = game.pass();
 
         assert_ne!(game.current_player, new_game.current_player);

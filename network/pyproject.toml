@@ -7,6 +7,7 @@ authors = ["Cameron Martin <cameron.martin@forgerock.com>"]
 [tool.poetry.dependencies]
 python = "^3.7"
 tensorflow = "^2.2"
+matplotlib = "^3.2.2"
 
 [tool.poetry.dev-dependencies]
 pytest = "^4.6"

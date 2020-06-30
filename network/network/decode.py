@@ -9,7 +9,7 @@ def decode(stream: bytes) -> Tuple[np.ndarray, np.ndarray]:
         raise Exception(f'The file does not contain a multiple of {BYTES_PER_RECORD} bytes')
     num_records = num_bytes // BYTES_PER_RECORD
     images = np.empty((num_records, 8, 16, 3), dtype=np.float32)
-    labels = np.zeros((num_records, 129))
+    labels = np.empty((num_records, 1), dtype=np.float32)
     bytes_offset = 0
     for i in range(0, num_records):
         current_byte = stream[bytes_offset]
@@ -28,6 +28,6 @@ def decode(stream: bytes) -> Tuple[np.ndarray, np.ndarray]:
                 bytes_offset += 1
                 current_byte = stream[bytes_offset]
                 mask = 0x80
-        labels[i][current_byte] = 1
+        labels[i][0] = current_byte
         bytes_offset += 1
     return images, labels

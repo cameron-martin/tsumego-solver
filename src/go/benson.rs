@@ -66,14 +66,16 @@ mod tests {
 
     #[test]
     fn small_black_enclosed_regions() {
-        let board = GoGame::from_sgf(include_str!(
-            "../test_sgfs/small_black_enclosed_regions.sgf"
-        ))
+        let board = GoGame::from_sgf(
+            include_str!("../test_sgfs/small_black_enclosed_regions.sgf"),
+            GoPlayer::Black,
+        )
         .board;
 
-        let answer = GoGame::from_sgf(include_str!(
-            "../test_sgfs/small_black_enclosed_regions_answer.sgf"
-        ))
+        let answer = GoGame::from_sgf(
+            include_str!("../test_sgfs/small_black_enclosed_regions_answer.sgf"),
+            GoPlayer::Black,
+        )
         .board
         .get_bitboard_for_player(GoPlayer::White);
 
@@ -82,7 +84,10 @@ mod tests {
 
     #[test]
     fn all_alive1() {
-        let game = GoGame::from_sgf(include_str!("../test_sgfs/life_and_death/all_alive1.sgf"));
+        let game = GoGame::from_sgf(
+            include_str!("../test_sgfs/life_and_death/all_alive1.sgf"),
+            GoPlayer::Black,
+        );
 
         assert_eq!(
             game.board
@@ -93,24 +98,34 @@ mod tests {
 
     #[test]
     fn all_dead1() {
-        let game = GoGame::from_sgf(include_str!("../test_sgfs/life_and_death/all_dead1.sgf"));
+        let game = GoGame::from_sgf(
+            include_str!("../test_sgfs/life_and_death/all_dead1.sgf"),
+            GoPlayer::Black,
+        );
 
         assert_eq!(game.board.unconditionally_alive_blocks(), GoBoard::empty());
     }
 
     #[test]
     fn mixture() {
-        let game = GoGame::from_sgf(include_str!("../test_sgfs/life_and_death/mixture.sgf"));
-        let answer = GoGame::from_sgf(include_str!(
-            "../test_sgfs/life_and_death/mixture_answer.sgf"
-        ));
+        let game = GoGame::from_sgf(
+            include_str!("../test_sgfs/life_and_death/mixture.sgf"),
+            GoPlayer::Black,
+        );
+        let answer = GoGame::from_sgf(
+            include_str!("../test_sgfs/life_and_death/mixture_answer.sgf"),
+            GoPlayer::Black,
+        );
 
         assert_eq!(game.board.unconditionally_alive_blocks(), answer.board);
     }
 
     #[test]
     fn bug1() {
-        let game = GoGame::from_sgf(include_str!("../test_sgfs/puzzles/true_simple2.sgf"));
+        let game = GoGame::from_sgf(
+            include_str!("../test_sgfs/puzzles/true_simple2.sgf"),
+            GoPlayer::Black,
+        );
 
         assert!(game
             .board

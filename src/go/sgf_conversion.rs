@@ -21,7 +21,7 @@ impl Into<Color> for GoPlayer {
 }
 
 impl GoGame {
-    pub fn from_sgf(sgf_string: &str) -> GoGame {
+    pub fn from_sgf(sgf_string: &str, first_player: GoPlayer) -> GoGame {
         let sgf = sgf_parser::parse(sgf_string).unwrap();
 
         assert_eq!(sgf.count_variations(), 0);
@@ -54,7 +54,7 @@ impl GoGame {
             board.set_out_of_bounds(BitBoard::singleton(position).flood_fill(board.empty_cells()));
         };
 
-        let mut game = GoGame::from_board(board, GoPlayer::Black);
+        let mut game = GoGame::from_board(board, first_player);
 
         for node in nodes {
             for token in node.tokens.iter() {
@@ -132,6 +132,9 @@ mod tests {
 
     #[quickcheck]
     fn inverse(board: GoBoard) {
-        assert_eq!(GoGame::from_sgf(&board.to_sgf()).board, board);
+        assert_eq!(
+            GoGame::from_sgf(&board.to_sgf(), GoPlayer::Black).board,
+            board
+        );
     }
 }

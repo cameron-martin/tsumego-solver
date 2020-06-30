@@ -1,4 +1,5 @@
 mod generate;
+mod solve;
 
 use clap::{App, AppSettings, Arg, SubCommand};
 use std::io;
@@ -32,6 +33,25 @@ fn main() -> io::Result<()> {
                         .takes_value(true),
                 ),
         )
+        .subcommand(
+            SubCommand::with_name("solve")
+                .about("Re-solve a directory of puzzles")
+                .arg(
+                    Arg::with_name("dir")
+                        .help("The directory the puzzles are in")
+                        .short("d")
+                        .long("dir")
+                        .default_value("generated_puzzles")
+                        .takes_value(true),
+                )
+                .arg(
+                    Arg::with_name("model")
+                        .help("The directory of the move ordering model")
+                        .long("model")
+                        .default_value("network/model")
+                        .takes_value(true),
+                ),
+        )
         .setting(AppSettings::ArgRequiredElseHelp)
         .get_matches();
 
@@ -46,6 +66,13 @@ fn main() -> io::Result<()> {
                 str::parse(thread_count).unwrap(),
                 model_dir,
             )
+        }
+        ("solve", Some(matches)) => {
+            let directory = matches.value_of("dir").unwrap();
+            // let thread_count = matches.value_of("threads").unwrap();
+            let model_dir = matches.value_of("model").unwrap();
+
+            solve::run(Path::new(directory), model_dir)
         }
         _ => Ok(()),
     }
