@@ -1,7 +1,7 @@
 mod benson;
 mod bit_board;
 mod sgf_conversion;
-pub use bit_board::{BitBoard, BoardPosition};
+pub use bit_board::{BitBoard, BitBoardEdge, BoardPosition};
 use std::collections::hash_map::DefaultHasher;
 use std::fmt;
 use std::fmt::Debug;

@@ -31,7 +31,7 @@ impl GoGame {
         let first_node = nodes.next().unwrap();
 
         let mut board = GoBoard::empty();
-        let mut triangle_location = None;
+        let mut triangle_locations = BitBoard::empty();
 
         for token in first_node.tokens.iter() {
             match token {
@@ -43,16 +43,14 @@ impl GoGame {
                     BoardCell::Occupied((*color).into()),
                 ),
                 SgfToken::Triangle { coordinate: (i, j) } => {
-                    triangle_location = Some(BoardPosition::new(i - 1, j - 1))
+                    triangle_locations = triangle_locations.set(BoardPosition::new(i - 1, j - 1));
                 }
                 SgfToken::Move { .. } => panic!("Cannot move at this time!"),
                 _ => {}
             }
         }
 
-        if let Some(position) = triangle_location {
-            board.set_out_of_bounds(BitBoard::singleton(position).flood_fill(board.empty_cells()));
-        };
+        board.set_out_of_bounds(triangle_locations.flood_fill(board.empty_cells()));
 
         let mut game = GoGame::from_board(board, GoPlayer::Black);
 
@@ -97,13 +95,20 @@ impl GoBoard {
             })
             .collect();
 
-        tokens.push(SgfToken::Triangle {
-            coordinate: {
-                let (x, y) = self.out_of_bounds().positions().next().unwrap().to_pair();
+        tokens.push(SgfToken::Size(
+            BitBoard::width() as u32,
+            BitBoard::height() as u32,
+        ));
 
-                (x + 1, y + 1)
-            },
-        });
+        for group in self.out_of_bounds().groups() {
+            tokens.push(SgfToken::Triangle {
+                coordinate: {
+                    let (x, y) = group.positions().next().unwrap().to_pair();
+
+                    (x + 1, y + 1)
+                },
+            });
+        }
 
         let node = GameNode { tokens };
 
