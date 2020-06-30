@@ -1,18 +1,17 @@
-use crate::go::{BitBoard, BoardPosition, GoBoard, GoPlayer};
+mod boundary;
+
+use crate::go::{BitBoard, GoBoard, GoPlayer};
 use rand::prelude::*;
 
-pub fn generate_candidate<G: RngCore>(rng: &mut G) -> GoBoard {
-    let width: u8 = rng.gen_range(2, BitBoard::width() - 1);
-    let height: u8 = rng.gen_range(2, BitBoard::height() - 1);
+pub fn generate_candidate<G: Rng>(rng: &mut G) -> GoBoard {
+    let in_bounds = boundary::generate_in_bounds(rng);
 
-    let enclosure = generate_enclosure(width, height);
+    let surround = in_bounds.immediate_exterior();
+    let out_of_bounds = !(in_bounds | surround);
 
-    let surround = enclosure.immediate_exterior();
-    let out_of_bounds = !(enclosure | surround);
+    let (mut black, mut white) = generate_interior_stones(in_bounds, rng);
 
-    let (mut black, mut white) = generate_interior_stones(width, height, rng);
-
-    let attacker = if random() {
+    let attacker = if rng.gen() {
         GoPlayer::White
     } else {
         GoPlayer::Black
@@ -26,40 +25,43 @@ pub fn generate_candidate<G: RngCore>(rng: &mut G) -> GoBoard {
     GoBoard::new(black, white, out_of_bounds)
 }
 
-fn generate_enclosure(width: u8, height: u8) -> BitBoard {
-    let mut board = BitBoard::empty();
-
-    for i in 0..width {
-        for j in 0..height {
-            board = board.set(BoardPosition::new(i, j));
-        }
-    }
-
-    board
-}
-
-fn generate_interior_stones<G: RngCore>(
-    width: u8,
-    height: u8,
-    rng: &mut G,
-) -> (BitBoard, BitBoard) {
+fn generate_interior_stones<G: RngCore>(in_bounds: BitBoard, rng: &mut G) -> (BitBoard, BitBoard) {
     let mut black = BitBoard::empty();
     let mut white = BitBoard::empty();
 
-    for i in 0..width {
-        for j in 0..height {
-            let is_filled: bool = rng.gen();
+    for position in in_bounds.positions() {
+        let is_filled: bool = rng.gen();
 
-            if is_filled {
-                let position = BoardPosition::new(i, j);
-                if rng.gen() {
-                    white = white.set(position);
-                } else {
-                    black = black.set(position);
-                }
+        if is_filled {
+            if rng.gen() {
+                white = white.set(position);
+            } else {
+                black = black.set(position);
             }
         }
     }
 
     (black, white)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use insta::assert_snapshot;
+    use std::iter;
+
+    #[test]
+    fn snapshot_generate_candidate() {
+        let mut snapshot = String::new();
+
+        let mut rng = StdRng::seed_from_u64(0);
+
+        let candidates = iter::repeat_with(|| generate_candidate(&mut rng));
+
+        for candidate in candidates.take(100) {
+            snapshot.push_str(&format!("{}\n\n", candidate));
+        }
+
+        assert_snapshot!(snapshot);
+    }
 }
