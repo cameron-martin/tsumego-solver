@@ -4,12 +4,12 @@ use crate::go::{BitBoard, GoBoard, GoPlayer};
 use rand::prelude::*;
 
 pub fn generate_candidate<G: Rng>(rng: &mut G) -> GoBoard {
-    let in_bounds = boundary::generate_in_bounds(rng);
+    let playable_area = boundary::generate_playable_area(rng);
 
-    let surround = in_bounds.immediate_exterior();
-    let out_of_bounds = !(in_bounds | surround);
+    let boundary = boundary::draw_boundary(playable_area);
+    let out_of_bounds = !(playable_area | boundary);
 
-    let (mut black, mut white) = generate_interior_stones(in_bounds, rng);
+    let (mut black, mut white) = generate_interior_stones(playable_area, rng);
 
     let attacker = if rng.gen() {
         GoPlayer::White
@@ -18,18 +18,21 @@ pub fn generate_candidate<G: Rng>(rng: &mut G) -> GoBoard {
     };
 
     match attacker {
-        GoPlayer::White => white = white | surround,
-        GoPlayer::Black => black = black | surround,
+        GoPlayer::White => white = white | boundary,
+        GoPlayer::Black => black = black | boundary,
     };
 
     GoBoard::new(black, white, out_of_bounds)
 }
 
-fn generate_interior_stones<G: RngCore>(in_bounds: BitBoard, rng: &mut G) -> (BitBoard, BitBoard) {
+fn generate_interior_stones<G: RngCore>(
+    playable_area: BitBoard,
+    rng: &mut G,
+) -> (BitBoard, BitBoard) {
     let mut black = BitBoard::empty();
     let mut white = BitBoard::empty();
 
-    for position in in_bounds.positions() {
+    for position in playable_area.positions() {
         let is_filled: bool = rng.gen();
 
         if is_filled {

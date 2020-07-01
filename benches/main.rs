@@ -1,7 +1,8 @@
 use criterion::{black_box, criterion_group, criterion_main, BatchSize, Criterion};
+use rand::prelude::{SeedableRng, SmallRng};
 use tsumego_solver::go::{BoardPosition, GoGame, Move};
 use tsumego_solver::puzzle::NoProfile;
-use tsumego_solver::puzzle::Puzzle;
+use tsumego_solver::{generation, puzzle::Puzzle};
 
 fn playing_moves(c: &mut Criterion) {
     let mut group = c.benchmark_group("playing moves");
@@ -152,5 +153,25 @@ fn solving_puzzles(c: &mut Criterion) {
     });
 }
 
-criterion_group!(benches, playing_moves, unconditional_life, solving_puzzles);
+fn generating_puzzles(c: &mut Criterion) {
+    let mut group = c.benchmark_group("generating puzzles");
+
+    for &i in &[0, 1] {
+        group.bench_function(format!("generating candidates (seed {})", i), |b| {
+            b.iter_batched(
+                || SmallRng::seed_from_u64(i),
+                |mut rng| generation::generate_candidate(&mut rng),
+                BatchSize::SmallInput,
+            )
+        });
+    }
+}
+
+criterion_group!(
+    benches,
+    playing_moves,
+    unconditional_life,
+    solving_puzzles,
+    generating_puzzles
+);
 criterion_main!(benches);

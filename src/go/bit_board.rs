@@ -5,6 +5,35 @@ use std::ops::{BitAnd, BitOr, BitXor, Not};
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub struct BoardPosition(u8);
 
+#[derive(Clone, Copy, Debug)]
+pub enum BitBoardEdge {
+    Left,
+    Right,
+    Bottom,
+    Top,
+}
+
+impl BitBoardEdge {
+    pub fn iter() -> impl Iterator<Item = &'static BitBoardEdge> {
+        (&[
+            BitBoardEdge::Bottom,
+            BitBoardEdge::Top,
+            BitBoardEdge::Left,
+            BitBoardEdge::Right,
+        ])
+            .iter()
+    }
+
+    pub fn opposite(self) -> BitBoardEdge {
+        match self {
+            BitBoardEdge::Left => BitBoardEdge::Right,
+            BitBoardEdge::Right => BitBoardEdge::Left,
+            BitBoardEdge::Bottom => BitBoardEdge::Top,
+            BitBoardEdge::Top => BitBoardEdge::Bottom,
+        }
+    }
+}
+
 impl BoardPosition {
     pub fn new(column: u8, row: u8) -> BoardPosition {
         BoardPosition(column + BitBoard::width() * row)
@@ -108,6 +137,15 @@ impl BitBoard {
         BitBoard(0x8000_8000_8000_8000_8000_8000_8000_8000u128)
     }
 
+    pub fn edge(edge: BitBoardEdge) -> BitBoard {
+        match edge {
+            BitBoardEdge::Left => Self::left_edge(),
+            BitBoardEdge::Right => Self::right_edge(),
+            BitBoardEdge::Top => Self::top_edge(),
+            BitBoardEdge::Bottom => Self::bottom_edge(),
+        }
+    }
+
     pub fn empty() -> BitBoard {
         BitBoard(0)
     }
@@ -126,6 +164,15 @@ impl BitBoard {
 
     pub fn shift_right(self) -> BitBoard {
         BitBoard(self.0 >> 1) & !Self::left_edge()
+    }
+
+    pub fn shift_towards(self, edge: BitBoardEdge) -> BitBoard {
+        match edge {
+            BitBoardEdge::Left => self.shift_left(),
+            BitBoardEdge::Right => self.shift_right(),
+            BitBoardEdge::Top => self.shift_up(),
+            BitBoardEdge::Bottom => self.shift_down(),
+        }
     }
 
     pub fn is_empty(&self) -> bool {
