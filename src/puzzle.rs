@@ -147,7 +147,7 @@ impl<P: Profiler> Puzzle<P> {
 
         let game = self.current_game();
 
-        let moves = game.generate_moves_including_pass();
+        let moves = game.generate_moves();
 
         debug_assert!(!moves.is_empty(), "No moves found for node: {:?}", game);
 

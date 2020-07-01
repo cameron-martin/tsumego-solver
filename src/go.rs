@@ -1,3 +1,8 @@
+//! Encapsulates the rules of the game of go.
+//!
+//! The current state of a game is represented by [`GoGame`](./struct.GoGame.html),
+//! and moves can be played using [`GoGame::play_move`](./struct.GoGame.html#method.play_move)
+
 mod benson;
 mod bit_board;
 mod sgf_conversion;
@@ -135,7 +140,7 @@ impl GoBoard {
         }
     }
 
-    fn get_cell(&self, position: BoardPosition) -> BoardCell {
+    pub fn get_cell(&self, position: BoardPosition) -> BoardCell {
         let mask = BitBoard::singleton(position);
 
         if !((mask & self.out_of_bounds()).is_empty()) {
@@ -239,8 +244,15 @@ pub enum PassState {
 #[derive(Debug, PartialEq, Clone, Copy, Eq, Hash)]
 pub struct GoGame {
     ko_violations: BitBoard,
+
     pub board: GoBoard,
+
+    /// The player whose turn it currently is.
     pub current_player: GoPlayer,
+
+    /// The number of sequential passes that have occured.
+    ///
+    /// After two sequential passes have occured, the game has ended.
     pub pass_state: PassState,
 }
 
@@ -254,11 +266,11 @@ pub enum MoveError {
 }
 
 impl GoGame {
-    pub fn empty() -> GoGame {
+    pub fn empty(current_player: GoPlayer) -> GoGame {
         GoGame {
             board: GoBoard::empty(),
             ko_violations: BitBoard::empty(),
-            current_player: GoPlayer::Black,
+            current_player,
             pass_state: PassState::NoPass,
         }
     }
@@ -292,14 +304,37 @@ impl GoGame {
         self.play_move(go_move)
     }
 
+    /// Plays any type of move: either placing a stone or passing.
+    ///
+    /// This is a combination of [`GoGame::place_stone`](#method.place_stone) and [`GoGame::pass`](#method.pass),
+    /// useful when wanting to treat both move types in a uniform way.
+    ///
+    /// ```rust
+    /// use tsumego_solver::go::{GoGame, GoPlayer, Move};
+    ///
+    /// let game = GoGame::empty(GoPlayer::Black).play_move(Move::Pass).unwrap();
+    ///
+    /// assert_eq!(game.current_player, GoPlayer::White);
+    /// ```
     pub fn play_move(&self, go_move: Move) -> Result<GoGame, MoveError> {
         match go_move {
-            Move::Place(position) => self.play_placing_move(position),
+            Move::Place(position) => self.place_stone(position),
             Move::Pass => Ok(self.pass()),
         }
     }
 
-    pub fn play_placing_move(&self, position: BoardPosition) -> Result<GoGame, MoveError> {
+    /// Plays a move that involves placing a stone on the board.
+    ///
+    /// Returns an error if the move is invalid, usually by the rules of the game being violated.
+    ///
+    /// ```rust
+    /// use tsumego_solver::go::{GoGame, BoardPosition, BoardCell, GoPlayer};
+    ///
+    /// let game = GoGame::empty(GoPlayer::Black).place_stone(BoardPosition::new(0, 0)).unwrap();
+    ///
+    /// assert_eq!(game.board.get_cell(BoardPosition::new(0, 0)), BoardCell::Occupied(GoPlayer::Black));
+    /// ```
+    pub fn place_stone(&self, position: BoardPosition) -> Result<GoGame, MoveError> {
         if self.get_cell(position) != BoardCell::Empty {
             return Err(MoveError::Occupied);
         }
@@ -345,6 +380,17 @@ impl GoGame {
         })
     }
 
+    /// Plays a pass.
+    ///
+    /// This advances the current player, but does not add any stones to the board.
+    ///
+    /// ```rust
+    /// use tsumego_solver::go::{GoGame, GoPlayer};
+    ///
+    /// let game = GoGame::empty(GoPlayer::Black).pass();
+    ///
+    /// assert_eq!(game.current_player, GoPlayer::White);
+    /// ```
     pub fn pass(&self) -> GoGame {
         GoGame {
             board: self.board,
@@ -358,11 +404,11 @@ impl GoGame {
         }
     }
 
-    pub fn generate_moves(&self) -> Vec<(GoGame, Move)> {
+    fn generate_placing_moves(&self) -> Vec<(GoGame, Move)> {
         let mut games = Vec::new();
 
         for position in (!(self.board.white | self.board.black)).positions() {
-            if let Ok(game) = self.play_placing_move(position) {
+            if let Ok(game) = self.place_stone(position) {
                 games.push((game, Move::Place(position)));
             }
         }
@@ -370,8 +416,9 @@ impl GoGame {
         games
     }
 
-    pub fn generate_moves_including_pass(&self) -> Vec<(GoGame, Move)> {
-        let mut games = self.generate_moves();
+    /// Generates all legal moves and their resulting board states.
+    pub fn generate_moves(&self) -> Vec<(GoGame, Move)> {
+        let mut games = self.generate_placing_moves();
 
         games.push((self.pass(), Move::Pass));
 
@@ -385,7 +432,7 @@ mod tests {
 
     #[test]
     fn can_add_stone() {
-        let game = GoGame::empty();
+        let game = GoGame::empty(GoPlayer::Black);
         let game = game
             .play_move_for_player(Move::Place(BoardPosition::new(0, 0)), GoPlayer::Black)
             .unwrap();
@@ -398,7 +445,7 @@ mod tests {
 
     #[test]
     fn previous_board_is_not_mutated() {
-        let old_game = GoGame::empty();
+        let old_game = GoGame::empty(GoPlayer::Black);
         let new_game = old_game
             .play_move_for_player(Move::Place(BoardPosition::new(0, 0)), GoPlayer::Black)
             .unwrap();
@@ -410,16 +457,16 @@ mod tests {
     }
 
     #[test]
-    fn current_player_starts_as_black() {
-        let game = GoGame::empty();
+    fn current_player_starts_as_specified() {
+        let game = GoGame::empty(GoPlayer::Black);
 
         assert_eq!(game.current_player, GoPlayer::Black);
     }
 
     #[test]
     fn player_advances_when_playing_move() {
-        let game = GoGame::empty()
-            .play_placing_move(BoardPosition::new(0, 0))
+        let game = GoGame::empty(GoPlayer::Black)
+            .place_stone(BoardPosition::new(0, 0))
             .unwrap();
 
         assert_eq!(game.current_player, GoPlayer::White);
@@ -427,7 +474,7 @@ mod tests {
 
     #[test]
     fn cannot_play_move_out_of_turn() {
-        let result = GoGame::empty()
+        let result = GoGame::empty(GoPlayer::Black)
             .play_move_for_player(Move::Place(BoardPosition::new(0, 0)), GoPlayer::White);
 
         assert_eq!(result, Err(MoveError::OutOfTurn));
@@ -435,10 +482,10 @@ mod tests {
 
     #[test]
     fn cannot_play_in_occupied_space() {
-        let game = GoGame::empty()
-            .play_placing_move(BoardPosition::new(0, 0))
+        let game = GoGame::empty(GoPlayer::Black)
+            .place_stone(BoardPosition::new(0, 0))
             .unwrap();
-        let result = game.play_placing_move(BoardPosition::new(0, 0));
+        let result = game.place_stone(BoardPosition::new(0, 0));
 
         assert_eq!(result, Err(MoveError::Occupied));
     }
@@ -453,7 +500,7 @@ mod tests {
     #[test]
     fn complex_groups_are_captured() {
         let game = GoGame::from_sgf(include_str!("test_sgfs/complex_capture.sgf"));
-        let game = game.play_placing_move(BoardPosition::new(11, 6)).unwrap();
+        let game = game.place_stone(BoardPosition::new(11, 6)).unwrap();
 
         assert_eq!(
             format!("{}", game.board),
@@ -480,7 +527,7 @@ mod tests {
     #[test]
     fn cannot_commit_suicide() {
         let game = GoGame::from_sgf(include_str!("test_sgfs/cannot_commit_suicide.sgf"));
-        let result = game.play_placing_move(BoardPosition::new(0, 0));
+        let result = game.place_stone(BoardPosition::new(0, 0));
 
         assert_eq!(result, Err(MoveError::Suicidal));
     }
@@ -488,7 +535,7 @@ mod tests {
     #[test]
     fn ko_rule_simple() {
         let game = GoGame::from_sgf(include_str!("test_sgfs/ko_rule_simple.sgf"));
-        let result = game.play_placing_move(BoardPosition::new(2, 2));
+        let result = game.place_stone(BoardPosition::new(2, 2));
 
         assert_eq!(result, Err(MoveError::Ko));
     }
@@ -497,14 +544,14 @@ mod tests {
     fn capture_two_recapture_one_not_ko_violation() {
         let game = GoGame::from_sgf(include_str!("test_sgfs/capture_two_recapture_one.sgf"));
 
-        game.play_placing_move(BoardPosition::new(3, 2)).unwrap();
+        game.place_stone(BoardPosition::new(3, 2)).unwrap();
     }
 
     #[test]
     fn capturing_single_and_joining_group_does_not_trigger_ko() {
         let game = GoGame::from_sgf(include_str!("test_sgfs/capture_single_join_group.sgf"));
 
-        let result = game.play_placing_move(BoardPosition::new(2, 1));
+        let result = game.place_stone(BoardPosition::new(2, 1));
 
         assert!(result.is_ok());
     }
@@ -514,7 +561,7 @@ mod tests {
         let game = GoGame::from_sgf(include_str!("test_sgfs/puzzles/true_simple1.sgf"));
         let moves = game.generate_moves();
 
-        assert_eq!(moves.len(), 5);
+        assert_eq!(moves.len(), 6);
     }
 
     #[test]
@@ -529,7 +576,7 @@ mod tests {
     fn move_clears_last_move_pass() {
         let game = GoGame::from_sgf(include_str!("test_sgfs/ko_rule_simple.sgf"));
         let game = game.pass();
-        let game = game.play_placing_move(BoardPosition::new(13, 7)).unwrap();
+        let game = game.place_stone(BoardPosition::new(13, 7)).unwrap();
 
         assert_eq!(game.pass_state, PassState::NoPass);
     }
